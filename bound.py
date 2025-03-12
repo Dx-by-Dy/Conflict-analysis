@@ -5,4 +5,4 @@ class Bound:
         self.right = right
 
     def __str__(self):
-        return f"Bound[id: {self.var_id}, left: {self.left}, right: {self.right}]"
+        return f"Bound{{id: {self.var_id}, left: {self.left}, right: {self.right}}}"
