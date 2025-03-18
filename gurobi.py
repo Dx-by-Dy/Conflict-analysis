@@ -28,7 +28,7 @@ from gurobipy import GRB
 #    print("Usage: sudoku.py filename")
 #    sys.exit(0)
 
-f = open("sudoky.lp")
+f = open("sudoku.lp")
 
 grid = f.read().split()
 
@@ -89,7 +89,7 @@ model.addConstrs(
 
 model.optimize()
 
-model.write("sudoky.lp")
+model.write("sudoku.lp")
 
 print("")
 print("Solution:")

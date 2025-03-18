@@ -135,7 +135,7 @@ class BnB:
                         min_val = val.dual_value
                         min_idx = idx
 
-                if self.__stack[min_idx].dual_value < self.__mip_state.primal_value():
+                if self.__stack[min_idx].dual_value <= self.__mip_state.primal_value():
                     self.__mip_state.update_dual_solution(self.__mip_state.primal_value(),
                                                           self.__mip_state.primal_solution())
                     self.__stopped = True
@@ -149,8 +149,8 @@ class BnB:
                     return
 
     def __mip_state_update(self, objective_function_value: float, solution: list[float]) -> bool:
-        if objective_function_value < min([val.dual_value for val in self.__stack] + [self.__mip_state.primal_value()]):
-            self.__mip_state.update_dual_solution(objective_function_value, solution)
+        #if objective_function_value < min([val.dual_value for val in self.__stack] + [self.__mip_state.primal_value()]):
+        self.__mip_state.update_dual_solution(objective_function_value, solution)
         if self.__check_on_primal(solution):
             self.__mip_state.update_primal_solution(objective_function_value, solution)
         return self.__mip_state.converged()
