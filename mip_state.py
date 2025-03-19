@@ -16,7 +16,7 @@ class MipState:
         self.__dual_solution = dual_solution
 
     def converged(self) -> bool:
-        if self.__primal_value < self.__dual_value:
+        if self.__primal_value <= self.__dual_value:
             return True
         return (self.__primal_value - self.__dual_value) / abs(self.__dual_value) < self.__eps_result
 
@@ -25,6 +25,12 @@ class MipState:
 
     def primal_solution(self) -> list[float]:
         return self.__primal_solution
+
+    def dual_value(self) -> float:
+        return self.__dual_value
+
+    def dual_solution(self) -> list[float]:
+        return self.__dual_solution
 
     def __str__(self) -> str:
         return (f"MipState{{\n\tprimal value: {self.__primal_value} \n\tprimal solution: {self.__primal_solution} \

@@ -28,7 +28,7 @@ from gurobipy import GRB
 #    print("Usage: sudoku.py filename")
 #    sys.exit(0)
 
-f = open("sudoku.lp")
+f = open("sudoku.txt")
 
 grid = f.read().split()
 

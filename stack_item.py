@@ -1,8 +1,13 @@
+from bound import Bound
+
 class StackItem:
-    def __init__(self, bounds, solution, dual_value):
+    def __init__(self, bounds: list[Bound], solution: list[float], dual_value: float) -> None:
         self.bounds = bounds
         self.solution = solution
         self.dual_value = dual_value
+
+    def add_bound(self, bound: Bound) -> list[Bound]:
+        return [self.bounds[i].concat(bound) if i == bound.var_id else self.bounds[i] for i in range(len(self.bounds))]
 
     def __str__(self):
         text = "StackItem{\n\tBounds:\n"
