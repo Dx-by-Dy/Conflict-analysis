@@ -9,6 +9,3 @@ class Bound:
 
     def __str__(self):
         return f"Bound{{id: {self.var_id}, left: {self.left}, right: {self.right}}}"
-
-    def __copy__(self):
-        return Bound(self.var_id, self.left, self.right)

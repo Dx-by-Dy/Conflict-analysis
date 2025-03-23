@@ -1,6 +1,6 @@
 from bound import Bound
 
-class StackItem:
+class Node:
     def __init__(self, bounds: list[Bound], solution: list[float], dual_value: float) -> None:
         self.bounds = bounds
         self.solution = solution
@@ -10,7 +10,7 @@ class StackItem:
         return [self.bounds[i].concat(bound) if i == bound.var_id else self.bounds[i] for i in range(len(self.bounds))]
 
     def __str__(self):
-        text = "StackItem{\n\tBounds:\n"
+        text = "Node{\n\tBounds:\n"
         for bound in self.bounds:
             text += "\t\t" + str(bound) + "\n"
         text += "\tSolution:\n\t\t" + str(self.solution) + "\n"

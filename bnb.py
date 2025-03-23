@@ -1,12 +1,12 @@
-import random
-
 import highspy
 from bound import Bound
 from mip_state import MipState
-from stack_item import StackItem
+from node import Node
+
 
 class BnB:
-    def __init__(self, path: str, eps_result: float = 1e-6, eps_integer: float = 1e-18, max_var_value: int = 10 ** 3) -> None:
+    def __init__(self, path: str, eps_result: float = 1e-6, eps_integer: float = 1e-18,
+                 max_var_value: int = 10 ** 3) -> None:
         self.__solver = highspy.Highs()
         self.__solver.readModel(path)
         self.__solver.silent()
@@ -22,9 +22,12 @@ class BnB:
             bounds.append(Bound(i, 0, self.__max_var_value))
             self.__solver.changeColBounds(i, 0, self.__max_var_value)
 
+        self.__solver.presolve()
         self.__solver.run()
 
         if self.__solver.getModelStatus().value != 7:
+            self.__mip_state.add_infeasibility_node(self.__solver.getPresolvedLp().col_lower_,
+                                                    self.__solver.getPresolvedLp().col_upper_)
             self.__stopped = True
         else:
             self.__stopped = False
@@ -35,7 +38,7 @@ class BnB:
                 self.__stopped = True
                 self.__mip_state.update_primal_solution(objective_function_value, solution)
             else:
-                self.__stack = [StackItem(bounds, solution, objective_function_value)]
+                self.__stack = [Node(bounds, solution, objective_function_value)]
 
     def __check_on_primal(self, dual_solution: list[float]) -> bool:
         for i in self.__generalize:
@@ -62,35 +65,32 @@ class BnB:
         if self.__stopped:
             return
 
-        stack_item = self.__stack.pop()
-        while stack_item is not None:
-            #print(self.__mip_state.dual_value(), len(stack_item.bounds))
-            #print(stack_item.solution)
-            left_bound, right_bound = self.__find_cut(stack_item)
+        node = self.__stack.pop()
+        while node is not None:
+            self.__mip_state.add_branch()
+            left_bound, right_bound = self.__find_cut(node)
 
             left_solver = highspy.Highs()
             left_solver.passModel(self.__solver.getModel())
             left_solver.silent()
-            left_bounds = stack_item.add_bound(left_bound)
-            # left_solver.changeColBounds(left_bound.var_id, left_bound.left, left_bound.right)
+            left_bounds = node.add_bound(left_bound)
 
             right_solver = highspy.Highs()
             right_solver.passModel(self.__solver.getModel())
             right_solver.silent()
-            right_bounds = stack_item.add_bound(right_bound)
-            # right_solver.changeColBounds(right_bound.var_id, right_bound.left, right_bound.right)
-            for i in range(len(stack_item.bounds)):
+            right_bounds = node.add_bound(right_bound)
+            for i in range(len(node.bounds)):
                 left_solver.changeColBounds(left_bounds[i].var_id, left_bounds[i].left, left_bounds[i].right)
                 right_solver.changeColBounds(right_bounds[i].var_id, right_bounds[i].left, right_bounds[i].right)
 
+            left_solver.presolve()
+            right_solver.presolve()
             left_solver.run()
             right_solver.run()
-
-            print(self.__mip_state.dual_value())
-            print(stack_item.dual_value, left_solver.getInfo().objective_function_value, right_solver.getInfo().objective_function_value)
+            exist_feasible_node = False
 
             if left_solver.getModelStatus().value == 7 and right_solver.getModelStatus().value == 7:
-                print(1)
+                exist_feasible_node = True
                 left_objective_function_value = left_solver.getInfo().objective_function_value
                 left_solution = left_solver.getSolution().col_value
                 right_objective_function_value = right_solver.getInfo().objective_function_value
@@ -100,79 +100,34 @@ class BnB:
                     if self.__check_on_primal(right_solution):
                         self.__mip_state.update_primal_solution(right_objective_function_value, right_solution)
                     elif right_objective_function_value < self.__mip_state.primal_value():
-                        self.__stack.append(StackItem(right_bounds, right_solution,
-                                               right_objective_function_value))
+                        self.__stack.append(Node(right_bounds, right_solution,
+                                                 right_objective_function_value))
                     if self.__mip_state_update(left_objective_function_value, left_solution):
                         self.__stopped = True
                         return
                     if left_objective_function_value < self.__mip_state.primal_value():
-                        stack_item = StackItem(left_bounds, left_solution,
-                                       left_objective_function_value)
-                    else:
-                        if not self.__stack:
-                            self.__stopped = True
-                            return
-
-                        min_idx = 0
-                        min_val = self.__stack[0].dual_value
-                        for idx, val in enumerate(self.__stack):
-                            if val.dual_value < min_val:
-                                min_val = val.dual_value
-                                min_idx = idx
-
-                        if self.__mip_state.primal_value() <= self.__stack[min_idx].dual_value:
-                            self.__mip_state.update_dual_solution(self.__mip_state.primal_value(),
-                                                                  self.__mip_state.primal_solution())
-                            self.__stopped = True
-                            return
-
-                        self.__mip_state.update_dual_solution(self.__stack[min_idx].dual_value,
-                                                              self.__stack[min_idx].solution)
-
-                        stack_item = self.__stack.pop()
-                        if self.__mip_state.converged():
-                            self.__stopped = True
-                            return
+                        node = Node(left_bounds, left_solution,
+                                    left_objective_function_value)
+                        continue
                 else:
                     if self.__check_on_primal(left_solution):
                         self.__mip_state.update_primal_solution(left_objective_function_value, left_solution)
                     elif left_objective_function_value < self.__mip_state.primal_value():
-                        self.__stack.append(StackItem(left_bounds, left_solution,
-                              left_objective_function_value))
+                        self.__stack.append(Node(left_bounds, left_solution,
+                                                 left_objective_function_value))
                     if self.__mip_state_update(right_objective_function_value, right_solution):
                         self.__stopped = True
                         return
                     if right_objective_function_value < self.__mip_state.primal_value():
-                        stack_item = StackItem(right_bounds, right_solution,
-                                           right_objective_function_value)
-                    else:
-                        if not self.__stack:
-                            self.__stopped = True
-                            return
-
-                        min_idx = 0
-                        min_val = self.__stack[0].dual_value
-                        for idx, val in enumerate(self.__stack):
-                            if val.dual_value < min_val:
-                                min_val = val.dual_value
-                                min_idx = idx
-
-                        if self.__mip_state.primal_value() <= self.__stack[min_idx].dual_value:
-                            self.__mip_state.update_dual_solution(self.__mip_state.primal_value(),
-                                                                  self.__mip_state.primal_solution())
-                            self.__stopped = True
-                            return
-
-                        self.__mip_state.update_dual_solution(self.__stack[min_idx].dual_value,
-                                                              self.__stack[min_idx].solution)
-
-                        stack_item = self.__stack.pop()
-                        if self.__mip_state.converged():
-                            self.__stopped = True
-                            return
+                        node = Node(right_bounds, right_solution,
+                                    right_objective_function_value)
+                        continue
 
             elif left_solver.getModelStatus().value != 7 and right_solver.getModelStatus().value == 7:
-                print(2)
+                exist_feasible_node = True
+                self.__mip_state.add_infeasibility_node(left_solver.getPresolvedLp().col_lower_,
+                                                        left_solver.getPresolvedLp().col_upper_)
+
                 right_objective_function_value = right_solver.getInfo().objective_function_value
                 right_solution = right_solver.getSolution().col_value
 
@@ -180,36 +135,15 @@ class BnB:
                     self.__stopped = True
                     return
                 if right_objective_function_value < self.__mip_state.primal_value():
-                    stack_item = StackItem(right_bounds, right_solution,
-                                       right_objective_function_value)
-                else:
-                    if not self.__stack:
-                        self.__stopped = True
-                        return
-
-                    min_idx = 0
-                    min_val = self.__stack[0].dual_value
-                    for idx, val in enumerate(self.__stack):
-                        if val.dual_value < min_val:
-                            min_val = val.dual_value
-                            min_idx = idx
-
-                    if self.__mip_state.primal_value() <= self.__stack[min_idx].dual_value:
-                        self.__mip_state.update_dual_solution(self.__mip_state.primal_value(),
-                                                              self.__mip_state.primal_solution())
-                        self.__stopped = True
-                        return
-
-                    self.__mip_state.update_dual_solution(self.__stack[min_idx].dual_value,
-                                                          self.__stack[min_idx].solution)
-
-                    stack_item = self.__stack.pop()
-                    if self.__mip_state.converged():
-                        self.__stopped = True
-                        return
+                    node = Node(right_bounds, right_solution,
+                                right_objective_function_value)
+                    continue
 
             elif left_solver.getModelStatus().value == 7 and right_solver.getModelStatus().value != 7:
-                print(3)
+                exist_feasible_node = True
+                self.__mip_state.add_infeasibility_node(right_solver.getPresolvedLp().col_lower_,
+                                                        right_solver.getPresolvedLp().col_upper_)
+
                 left_objective_function_value = left_solver.getInfo().objective_function_value
                 left_solution = left_solver.getSolution().col_value
 
@@ -217,58 +151,36 @@ class BnB:
                     self.__stopped = True
                     return
                 if left_objective_function_value < self.__mip_state.primal_value():
-                    stack_item = StackItem(left_bounds, left_solution,
-                                           left_objective_function_value)
-                else:
-                    if not self.__stack:
-                        self.__stopped = True
-                        return
+                    node = Node(left_bounds, left_solution,
+                                left_objective_function_value)
+                    continue
 
-                    min_idx = 0
-                    min_val = self.__stack[0].dual_value
-                    for idx, val in enumerate(self.__stack):
-                        if val.dual_value < min_val:
-                            min_val = val.dual_value
-                            min_idx = idx
+            if not exist_feasible_node:
+                print(len(right_solver.getPresolvedLp().col_lower_))
+                print(right_solver.getSolution().col_value)
+                self.__mip_state.add_infeasibility_node(right_solver.getPresolvedLp().col_lower_,
+                                                        right_solver.getPresolvedLp().col_upper_)
+                self.__mip_state.add_infeasibility_node(left_solver.getPresolvedLp().col_lower_,
+                                                        left_solver.getPresolvedLp().col_upper_)
 
-                    if self.__mip_state.primal_value() <= self.__stack[min_idx].dual_value:
-                        self.__mip_state.update_dual_solution(self.__mip_state.primal_value(),
-                                                              self.__mip_state.primal_solution())
-                        self.__stopped = True
-                        return
+            if not self.__stack:
+                self.__mip_state.update_dual_solution(self.__mip_state.primal_value(),
+                                                      self.__mip_state.primal_solution())
+                self.__stopped = True
+                return
 
-                    self.__mip_state.update_dual_solution(self.__stack[min_idx].dual_value,
-                                                          self.__stack[min_idx].solution)
+            min_idx = 0
+            min_val = self.__stack[0].dual_value
+            for idx, val in enumerate(self.__stack):
+                if val.dual_value < min_val:
+                    min_val = val.dual_value
+                    min_idx = idx
 
-                    stack_item = self.__stack.pop()
-                    if self.__mip_state.converged():
-                        self.__stopped = True
-                        return
-
-            else:
-                print(4)
-                if not self.__stack:
-                    self.__stopped = True
-                    return
-
-                min_idx = 0
-                min_val = self.__stack[0].dual_value
-                for idx, val in enumerate(self.__stack):
-                    if val.dual_value < min_val:
-                        min_val = val.dual_value
-                        min_idx = idx
-
-                if self.__mip_state.primal_value() <= self.__stack[min_idx].dual_value:
-                    self.__mip_state.update_dual_solution(self.__mip_state.primal_value(), self.__mip_state.primal_solution())
-                    self.__stopped = True
-                    return
-
-                self.__mip_state.update_dual_solution(self.__stack[min_idx].dual_value, self.__stack[min_idx].solution)
-
-                stack_item = self.__stack.pop()
-                if self.__mip_state.converged():
-                    self.__stopped = True
-                    return
+            self.__mip_state.update_dual_solution(self.__stack[min_idx].dual_value, self.__stack[min_idx].solution)
+            node = self.__stack.pop()
+            if self.__mip_state.converged():
+                self.__stopped = True
+                return
 
     def __mip_state_update(self, objective_function_value: float, solution: list[float]) -> bool:
         if objective_function_value < min([val.dual_value for val in self.__stack] + [self.__mip_state.primal_value()]):
@@ -277,8 +189,7 @@ class BnB:
             self.__mip_state.update_primal_solution(objective_function_value, solution)
         return self.__mip_state.converged()
 
-    def __find_cut(self, stack_item: StackItem) -> tuple[Bound, Bound]:
-        # TODO change logic
+    def __find_cut(self, node: Node) -> tuple[Bound, Bound]:
         heuristics = lambda x: abs(x - 0.5)
         result_id = 0
         min_heuristic_value = self.__solver.inf
@@ -286,7 +197,7 @@ class BnB:
         # random.shuffle(self.__generalize)
 
         for i in self.__generalize:
-            value = stack_item.solution[i]
+            value = node.solution[i]
             lower = value // 1
             temp_heuristics = heuristics(value - lower)
             if temp_heuristics < min_heuristic_value:

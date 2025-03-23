@@ -1,24 +1,26 @@
 import highspy
+from highspy import Highs
+
 from bnb import BnB
 
 if __name__ == '__main__':
-    #path = "../../Downloads/benchmark/enlight_hard.mps"
-    #path = "../../Downloads/benchmark/enlight8.mps"
-    #path = "../../Downloads/benchmark/glass-sc.mps" # highs not solve
-    #path = "../../Downloads/benchmark/iis-glass-cov.mps" # highs not solve
-    # path = "../../Downloads/benchmark/h80x6320.mps" # to easy
-    # path = "../../Downloads/benchmark/air05.mps" # to hard
-    #path = "../../Downloads/benchmark/air04.mps" # to hard
-    path = "../../Downloads/benchmark/supportcase16.mps"
-    #path = "test.lp"
-    B = BnB(path, max_var_value=1)
-    B.start()
-    print(B.result())
+    #path = "../../Downloads/benchmark/supportcase16.mps"
+    path = "test.lp"
+    #B = BnB(path, max_var_value=1)
+    #B.start()
+    #print(B.result())
 
-    h = highspy.Highs()
+    h = Highs()
     h.readModel(path)
     h.silent()
 
-    h.run()
+    h.presolve()
+    #h.solve()
+    #h.run()
     print(h.getSolution().col_value)
-    print(h.getInfo().objective_function_value)
+    #print(h.getInfo().objective_function_value)
+    print(h.getPresolvedLp().col_lower_)
+    print(h.getPresolvedLp().col_upper_)
+    print(list(map(lambda x: h.getColByName(x)[1], h.getPresolvedLp().col_names_)))
+    #print(help(h))
+    #print(help(h.getPresolvedLp()))
