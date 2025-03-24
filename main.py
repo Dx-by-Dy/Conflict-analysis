@@ -1,6 +1,4 @@
-import highspy
 from highspy import Highs
-
 from bnb import BnB
 
 if __name__ == '__main__':
@@ -15,12 +13,6 @@ if __name__ == '__main__':
     h.silent()
 
     h.presolve()
-    #h.solve()
-    #h.run()
+    h.run()
     print(h.getSolution().col_value)
-    #print(h.getInfo().objective_function_value)
-    print(h.getPresolvedLp().col_lower_)
-    print(h.getPresolvedLp().col_upper_)
-    print(list(map(lambda x: h.getColByName(x)[1], h.getPresolvedLp().col_names_)))
-    #print(help(h))
-    #print(help(h.getPresolvedLp()))
+    print(h.getInfo().objective_function_value)
