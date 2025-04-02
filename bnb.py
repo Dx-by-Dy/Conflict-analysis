@@ -187,9 +187,9 @@ class BnB:
         return self.__mip_state.converged()
 
     def __update_dual_value_with_infeasible_node(self, solver: highspy.Highs, bounds: list[Bound]) -> None:
-        presolver = Presolver(solver.getLp(), self.__generalize)
-        if not presolver.update_n_times(10):
-            return
+        #presolver = Presolver(solver.getLp(), self.__generalize)
+        #if not presolver.update_n_times(100):
+        #    return
 
         bounds_for_infeasible = []
         while True:
@@ -199,14 +199,50 @@ class BnB:
             try_to_remove_bound = bounds.pop()
             check_solver = highspy.Highs()
             check_solver.passModel(self.__solver.getModel())
+            check_solver.silent()
             for bound in bounds + bounds_for_infeasible:
                 check_solver.changeColBounds(bound.var_id, bound.left, bound.right)
 
-            presolver = Presolver(check_solver.getLp(), self.__generalize)
-            if not presolver.update_n_times(10):
+            #presolver = Presolver(check_solver.getLp(), self.__generalize)
+            #if not presolver.update_n_times(100):
+            #    bounds_for_infeasible.append(try_to_remove_bound)
+            check_solver.run()
+            if check_solver.getModelStatus().value == 7:
                 bounds_for_infeasible.append(try_to_remove_bound)
 
         print(len(bounds_for_infeasible), solver.numVariables)
+
+        values = []
+        for bound in bounds_for_infeasible:
+            check_solver = highspy.Highs()
+            check_solver.passModel(self.__solver.getModel())
+            check_solver.silent()
+
+            if bound.var_id in self.__generalize:
+                check_solver.changeColBounds(bound.var_id, 0, bound.left - 1)
+            else:
+                check_solver.changeColBounds(bound.var_id, 0, bound.left)
+
+            check_solver.run()
+            if check_solver.getModelStatus().value == 7:
+                values.append(check_solver.getInfo().objective_function_value)
+
+            check_solver = highspy.Highs()
+            check_solver.passModel(self.__solver.getModel())
+            check_solver.silent()
+
+            if bound.var_id in self.__generalize:
+                check_solver.changeColBounds(bound.var_id, bound.right + 1, self.__max_var_value)
+            else:
+                check_solver.changeColBounds(bound.var_id, bound.right, self.__max_var_value)
+
+            check_solver.run()
+            if check_solver.getModelStatus().value == 7:
+                values.append(check_solver.getInfo().objective_function_value)
+
+        print(values, self.__root_dual_value)
+        if min(values) > self.__root_dual_value:
+            raise ValueError
 
     def __find_cut(self, node: Node) -> tuple[Bound, Bound]:
         heuristics = lambda x: abs(x - 0.5)
