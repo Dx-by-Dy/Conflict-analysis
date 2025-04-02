@@ -1,10 +1,13 @@
+import highspy
+
+
 class Presolver:
-    def __init__(self, lp) -> None:
+    def __init__(self, lp: highspy.HighsLp, general_vars_idx: list[int]) -> None:
         self.__is_infeasible = False
         self.__infeasible_var_idx = None
         self.__constraints = [Constraint(constr_lb, constr_ub)
                             for constr_lb, constr_ub in zip(lp.row_lower_, lp.row_upper_)]
-        self.__vars = [Var(var_idx, lb, ub)
+        self.__vars = [Var(var_idx, lb, ub, var_idx in general_vars_idx)
                      for var_idx, (lb, ub) in enumerate(zip(lp.col_lower_, lp.col_upper_))]
 
         var_idx = 0
@@ -19,7 +22,7 @@ class Presolver:
     def update_n_times(self, n: int) -> bool:
         for _ in range(n):
             self.__update_all_vars()
-        return self.is_infeasible
+        return self.__is_infeasible
 
     def __update_all_vars(self):
         for var_idx in range(len(self.__vars)):
@@ -52,14 +55,14 @@ class Presolver:
                     min_another_vars_value += coeff * var.upper
 
             if var_coeff > 0:
-                updating_var.upper = min(updating_var.upper, (constraint.upper - min_another_vars_value) / var_coeff)
-                updating_var.lower = max(updating_var.lower, (constraint.lower - max_another_vars_value) / var_coeff)
+                updating_var.update_upper((constraint.upper - min_another_vars_value) / var_coeff)
+                updating_var.update_lower((constraint.lower - max_another_vars_value) / var_coeff)
 
                 constraint.upper = min(constraint.upper, max_another_vars_value + var_coeff * updating_var.upper)
                 constraint.lower = max(constraint.lower, min_another_vars_value + var_coeff * updating_var.lower)
             else:
-                updating_var.upper = min(updating_var.upper, (constraint.lower - max_another_vars_value) / var_coeff)
-                updating_var.lower = max(updating_var.lower, (constraint.upper - min_another_vars_value) / var_coeff)
+                updating_var.update_upper((constraint.lower - max_another_vars_value) / var_coeff)
+                updating_var.update_lower((constraint.upper - min_another_vars_value) / var_coeff)
 
                 constraint.upper = min(constraint.upper, max_another_vars_value + var_coeff * updating_var.lower)
                 constraint.lower = max(constraint.lower, min_another_vars_value + var_coeff * updating_var.upper)
@@ -91,11 +94,24 @@ class Constraint:
         self.vars_coeffs[var_idx] = coeff
 
 class Var:
-    def __init__(self, index: int, lower_bound: float, upper_bound: float) -> None:
+    def __init__(self, index: int, lower_bound: float, upper_bound: float, is_general: bool) -> None:
         self.index = index
         self.lower = lower_bound
         self.upper = upper_bound
         self.in_constraints = []
+        self.general = is_general
 
     def add_constraint(self, constr_idx: int) -> None:
         self.in_constraints.append(constr_idx)
+
+    def update_upper(self, value: float) -> None:
+        if self.general and value != -float("inf") and value != float("inf"):
+            self.upper = min(self.upper, value // 1)
+        else:
+            self.upper = min(self.upper, value)
+
+    def update_lower(self, value: float) -> None:
+        if self.general and value != -float("inf") and value != float("inf"):
+            self.lower = max(self.lower, value // 1)
+        else:
+            self.lower = max(self.lower, value)

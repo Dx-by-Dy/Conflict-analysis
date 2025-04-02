@@ -122,7 +122,7 @@ class BnB:
 
             elif left_solver.getModelStatus().value != 7 and right_solver.getModelStatus().value == 7:
                 exist_feasible_node = True
-                self.update_dual_value_with_infeasible_node(left_solver, left_bounds)
+                self.__update_dual_value_with_infeasible_node(left_solver, left_bounds)
                 self.__mip_state.add_infeasibility_node()
 
                 right_objective_function_value = right_solver.getInfo().objective_function_value
@@ -138,7 +138,7 @@ class BnB:
 
             elif left_solver.getModelStatus().value == 7 and right_solver.getModelStatus().value != 7:
                 exist_feasible_node = True
-                self.update_dual_value_with_infeasible_node(right_solver, right_bounds)
+                self.__update_dual_value_with_infeasible_node(right_solver, right_bounds)
                 self.__mip_state.add_infeasibility_node()
 
                 left_objective_function_value = left_solver.getInfo().objective_function_value
@@ -156,8 +156,8 @@ class BnB:
                 self.__mip_state.add_infeasibility_node()
                 self.__mip_state.add_infeasibility_node()
 
-                self.update_dual_value_with_infeasible_node(left_solver, left_bounds)
-                self.update_dual_value_with_infeasible_node(right_solver, right_bounds)
+                self.__update_dual_value_with_infeasible_node(left_solver, left_bounds)
+                self.__update_dual_value_with_infeasible_node(right_solver, right_bounds)
 
             if not self.__stack:
                 self.__mip_state.update_dual_solution(self.__mip_state.primal_value(),
@@ -186,8 +186,8 @@ class BnB:
             self.__mip_state.update_primal_solution(objective_function_value, solution)
         return self.__mip_state.converged()
 
-    def update_dual_value_with_infeasible_node(self, solver: highspy.Highs, bounds: list[Bound]) -> None:
-        presolver = Presolver(solver.getLp())
+    def __update_dual_value_with_infeasible_node(self, solver: highspy.Highs, bounds: list[Bound]) -> None:
+        presolver = Presolver(solver.getLp(), self.__generalize)
         if not presolver.update_n_times(10):
             return
 
@@ -202,12 +202,11 @@ class BnB:
             for bound in bounds + bounds_for_infeasible:
                 check_solver.changeColBounds(bound.var_id, bound.left, bound.right)
 
-            presolver = Presolver(check_solver.getLp())
+            presolver = Presolver(check_solver.getLp(), self.__generalize)
             if not presolver.update_n_times(10):
                 bounds_for_infeasible.append(try_to_remove_bound)
 
         print(len(bounds_for_infeasible), solver.numVariables)
-
 
     def __find_cut(self, node: Node) -> tuple[Bound, Bound]:
         heuristics = lambda x: abs(x - 0.5)

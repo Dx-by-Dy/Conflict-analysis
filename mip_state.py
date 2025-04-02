@@ -54,5 +54,5 @@ class MipState:
             text += "\n\tdual solution: [" + ", ".join(map(str, self.__dual_solution[:10])) + ", ..., " + ", ".join(map(str, self.__dual_solution[-10:])) + "]"
         text += "\n\tnum of infeasibility nodes: " + str(self.__num_of_infeasibility_nodes)
         text += "\n\tnum of branch: " + str(self.__num_of_branch)
-        text += "\n}}"
+        text += "\n}"
         return text
