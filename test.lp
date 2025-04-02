@@ -9,5 +9,5 @@ z - x <= 9
 y - 3x + 5w + z <= 11
 
 general
-
+x
 end

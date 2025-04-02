@@ -2,6 +2,7 @@ import highspy
 from bound import Bound
 from mip_state import MipState
 from node import Node
+from presolver import Presolver
 
 
 class BnB:
@@ -22,23 +23,21 @@ class BnB:
             bounds.append(Bound(i, 0, self.__max_var_value))
             self.__solver.changeColBounds(i, 0, self.__max_var_value)
 
-        self.__solver.presolve()
         self.__solver.run()
+        self.__root_dual_value = float("inf")
 
         if self.__solver.getModelStatus().value != 7:
-            self.__mip_state.add_infeasibility_node(self.__solver.getPresolvedLp().col_lower_,
-                                                    self.__solver.getPresolvedLp().col_upper_)
             self.__stopped = True
         else:
             self.__stopped = False
-            objective_function_value = self.__solver.getInfo().objective_function_value
+            self.__root_dual_value = self.__solver.getInfo().objective_function_value
             solution = self.__solver.getSolution().col_value
-            self.__mip_state.update_dual_solution(objective_function_value, solution)
+            self.__mip_state.update_dual_solution(self.__root_dual_value, solution)
             if self.__check_on_primal(solution):
                 self.__stopped = True
-                self.__mip_state.update_primal_solution(objective_function_value, solution)
+                self.__mip_state.update_primal_solution(self.__root_dual_value, solution)
             else:
-                self.__stack = [Node(bounds, solution, objective_function_value)]
+                self.__stack = [Node(bounds, solution, self.__root_dual_value)]
 
     def __check_on_primal(self, dual_solution: list[float]) -> bool:
         for i in self.__generalize:
@@ -83,8 +82,6 @@ class BnB:
                 left_solver.changeColBounds(left_bounds[i].var_id, left_bounds[i].left, left_bounds[i].right)
                 right_solver.changeColBounds(right_bounds[i].var_id, right_bounds[i].left, right_bounds[i].right)
 
-            left_solver.presolve()
-            right_solver.presolve()
             left_solver.run()
             right_solver.run()
             exist_feasible_node = False
@@ -125,8 +122,8 @@ class BnB:
 
             elif left_solver.getModelStatus().value != 7 and right_solver.getModelStatus().value == 7:
                 exist_feasible_node = True
-                self.__mip_state.add_infeasibility_node(left_solver.getPresolvedLp().col_lower_,
-                                                        left_solver.getPresolvedLp().col_upper_)
+                self.update_dual_value_with_infeasible_node(left_solver, left_bounds)
+                self.__mip_state.add_infeasibility_node()
 
                 right_objective_function_value = right_solver.getInfo().objective_function_value
                 right_solution = right_solver.getSolution().col_value
@@ -141,8 +138,8 @@ class BnB:
 
             elif left_solver.getModelStatus().value == 7 and right_solver.getModelStatus().value != 7:
                 exist_feasible_node = True
-                self.__mip_state.add_infeasibility_node(right_solver.getPresolvedLp().col_lower_,
-                                                        right_solver.getPresolvedLp().col_upper_)
+                self.update_dual_value_with_infeasible_node(right_solver, right_bounds)
+                self.__mip_state.add_infeasibility_node()
 
                 left_objective_function_value = left_solver.getInfo().objective_function_value
                 left_solution = left_solver.getSolution().col_value
@@ -156,12 +153,11 @@ class BnB:
                     continue
 
             if not exist_feasible_node:
-                print(len(right_solver.getPresolvedLp().col_lower_))
-                print(right_solver.getSolution().col_value)
-                self.__mip_state.add_infeasibility_node(right_solver.getPresolvedLp().col_lower_,
-                                                        right_solver.getPresolvedLp().col_upper_)
-                self.__mip_state.add_infeasibility_node(left_solver.getPresolvedLp().col_lower_,
-                                                        left_solver.getPresolvedLp().col_upper_)
+                self.__mip_state.add_infeasibility_node()
+                self.__mip_state.add_infeasibility_node()
+
+                self.update_dual_value_with_infeasible_node(left_solver, left_bounds)
+                self.update_dual_value_with_infeasible_node(right_solver, right_bounds)
 
             if not self.__stack:
                 self.__mip_state.update_dual_solution(self.__mip_state.primal_value(),
@@ -183,11 +179,35 @@ class BnB:
                 return
 
     def __mip_state_update(self, objective_function_value: float, solution: list[float]) -> bool:
-        if objective_function_value < min([val.dual_value for val in self.__stack] + [self.__mip_state.primal_value()]):
+        if objective_function_value < min([val.dual_value for val in self.__stack] +
+                                          [self.__mip_state.primal_value()]):
             self.__mip_state.update_dual_solution(objective_function_value, solution)
         if self.__check_on_primal(solution):
             self.__mip_state.update_primal_solution(objective_function_value, solution)
         return self.__mip_state.converged()
+
+    def update_dual_value_with_infeasible_node(self, solver: highspy.Highs, bounds: list[Bound]) -> None:
+        presolver = Presolver(solver.getLp())
+        if not presolver.update_n_times(10):
+            return
+
+        bounds_for_infeasible = []
+        while True:
+            if len(bounds) == 0:
+                break
+
+            try_to_remove_bound = bounds.pop()
+            check_solver = highspy.Highs()
+            check_solver.passModel(self.__solver.getModel())
+            for bound in bounds + bounds_for_infeasible:
+                check_solver.changeColBounds(bound.var_id, bound.left, bound.right)
+
+            presolver = Presolver(check_solver.getLp())
+            if not presolver.update_n_times(10):
+                bounds_for_infeasible.append(try_to_remove_bound)
+
+        print(len(bounds_for_infeasible), solver.numVariables)
+
 
     def __find_cut(self, node: Node) -> tuple[Bound, Bound]:
         heuristics = lambda x: abs(x - 0.5)
