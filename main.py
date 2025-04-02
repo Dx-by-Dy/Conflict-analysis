@@ -12,7 +12,6 @@ if __name__ == '__main__':
     h.readModel(path)
     h.silent()
 
-    h.presolve()
     h.run()
     print(h.getSolution().col_value)
     print(h.getInfo().objective_function_value)

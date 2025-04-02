@@ -210,8 +210,6 @@ class BnB:
             if check_solver.getModelStatus().value == 7:
                 bounds_for_infeasible.append(try_to_remove_bound)
 
-        print(len(bounds_for_infeasible), solver.numVariables)
-
         values = []
         for bound in bounds_for_infeasible:
             check_solver = highspy.Highs()
@@ -219,30 +217,37 @@ class BnB:
             check_solver.silent()
 
             if bound.var_id in self.__generalize:
-                check_solver.changeColBounds(bound.var_id, 0, bound.left - 1)
+                new_bound = Bound(bound.var_id, 0, bound.left - 1)
             else:
-                check_solver.changeColBounds(bound.var_id, 0, bound.left)
+                new_bound = Bound(bound.var_id, 0, bound.left)
 
+            check_solver.changeColBounds(new_bound.var_id, new_bound.left, new_bound.right)
             check_solver.run()
             if check_solver.getModelStatus().value == 7:
-                values.append(check_solver.getInfo().objective_function_value)
+                values.append((new_bound, check_solver.getInfo().objective_function_value))
 
             check_solver = highspy.Highs()
             check_solver.passModel(self.__solver.getModel())
             check_solver.silent()
 
             if bound.var_id in self.__generalize:
-                check_solver.changeColBounds(bound.var_id, bound.right + 1, self.__max_var_value)
+                new_bound = Bound(bound.var_id, bound.right + 1, self.__max_var_value)
             else:
-                check_solver.changeColBounds(bound.var_id, bound.right, self.__max_var_value)
+                new_bound = Bound(bound.var_id, bound.right, self.__max_var_value)
 
+            check_solver.changeColBounds(new_bound.var_id, new_bound.left, new_bound.right)
             check_solver.run()
             if check_solver.getModelStatus().value == 7:
-                values.append(check_solver.getInfo().objective_function_value)
+                values.append((new_bound, check_solver.getInfo().objective_function_value))
 
-        print(values, self.__root_dual_value)
-        if min(values) > self.__root_dual_value:
-            raise ValueError
+        if len(values) == 1:
+            self.__solver.changeColBounds(values[0][0].var_id, values[0][0].left, values[0][0].right)
+
+        min_value = min(values, key=lambda x: x[1])
+        if min_value[1] > self.__root_dual_value:
+            print(values, self.__root_dual_value)
+            input()
+            self.__root_dual_value = min_value[1]
 
     def __find_cut(self, node: Node) -> tuple[Bound, Bound]:
         heuristics = lambda x: abs(x - 0.5)
