@@ -2,7 +2,7 @@ import highspy
 from bound import Bound
 from mip_state import MipState
 from node import Node
-from presolver import Presolver
+# from presolver import Presolver
 
 
 class BnB:
@@ -23,6 +23,7 @@ class BnB:
             bounds.append(Bound(i, 0, self.__max_var_value))
             self.__solver.changeColBounds(i, 0, self.__max_var_value)
 
+        self.__solver.presolve()
         self.__solver.run()
         self.__root_dual_value = float("inf")
 
@@ -192,15 +193,15 @@ class BnB:
         #    return
 
         bounds_for_infeasible = []
+        idx_removing_bounds = 0
         while True:
-            if len(bounds) == 0:
+            if len(bounds) == idx_removing_bounds:
                 break
 
-            try_to_remove_bound = bounds.pop()
             check_solver = highspy.Highs()
             check_solver.passModel(self.__solver.getModel())
             check_solver.silent()
-            for bound in bounds + bounds_for_infeasible:
+            for bound in bounds[idx_removing_bounds + 1:] + bounds_for_infeasible:
                 check_solver.changeColBounds(bound.var_id, bound.left, bound.right)
 
             #presolver = Presolver(check_solver.getLp(), self.__generalize)
@@ -208,46 +209,67 @@ class BnB:
             #    bounds_for_infeasible.append(try_to_remove_bound)
             check_solver.run()
             if check_solver.getModelStatus().value == 7:
-                bounds_for_infeasible.append(try_to_remove_bound)
+                bounds_for_infeasible.append(bounds[idx_removing_bounds])
 
-        values = []
-        for bound in bounds_for_infeasible:
-            check_solver = highspy.Highs()
-            check_solver.passModel(self.__solver.getModel())
-            check_solver.silent()
+            idx_removing_bounds += 1
 
-            if bound.var_id in self.__generalize:
-                new_bound = Bound(bound.var_id, 0, bound.left - 1)
-            else:
-                new_bound = Bound(bound.var_id, 0, bound.left)
+        old_min_stack_value = float("inf")
+        if self.__stack:
+            old_min_stack_value = min(self.__stack, key=lambda x: x.dual_value).dual_value
 
-            check_solver.changeColBounds(new_bound.var_id, new_bound.left, new_bound.right)
-            check_solver.run()
-            if check_solver.getModelStatus().value == 7:
-                values.append((new_bound, check_solver.getInfo().objective_function_value))
+        for node in self.__stack:
+            values = []
+            for bound in bounds_for_infeasible:
+                # TODO: add checking that the solution in the infeasible zone
+                check_solver = highspy.Highs()
+                check_solver.passModel(self.__solver.getModel())
+                check_solver.silent()
 
-            check_solver = highspy.Highs()
-            check_solver.passModel(self.__solver.getModel())
-            check_solver.silent()
+                if bound.var_id in self.__generalize:
+                    new_bound = Bound(bound.var_id, 0, bound.left - 1)
+                else:
+                    new_bound = Bound(bound.var_id, 0, bound.left)
 
-            if bound.var_id in self.__generalize:
-                new_bound = Bound(bound.var_id, bound.right + 1, self.__max_var_value)
-            else:
-                new_bound = Bound(bound.var_id, bound.right, self.__max_var_value)
+                for bd in node.bounds:
+                    check_solver.changeColBounds(bd.var_id, bd.left, bd.right)
 
-            check_solver.changeColBounds(new_bound.var_id, new_bound.left, new_bound.right)
-            check_solver.run()
-            if check_solver.getModelStatus().value == 7:
-                values.append((new_bound, check_solver.getInfo().objective_function_value))
+                check_solver.changeColBounds(new_bound.var_id, new_bound.left, new_bound.right)
+                check_solver.run()
+                if check_solver.getModelStatus().value == 7:
+                    values.append((new_bound, check_solver.getInfo().objective_function_value, check_solver.getSolution().col_value))
 
-        if len(values) == 1:
-            self.__solver.changeColBounds(values[0][0].var_id, values[0][0].left, values[0][0].right)
+                check_solver = highspy.Highs()
+                check_solver.passModel(self.__solver.getModel())
+                check_solver.silent()
 
-        min_value = min(values, key=lambda x: x[1])
-        if min_value[1] > self.__root_dual_value:
-            print(values, self.__root_dual_value)
-            input()
-            self.__root_dual_value = min_value[1]
+                if bound.var_id in self.__generalize:
+                    new_bound = Bound(bound.var_id, bound.right + 1, self.__max_var_value)
+                else:
+                    new_bound = Bound(bound.var_id, bound.right, self.__max_var_value)
+
+                for bd in node.bounds:
+                    check_solver.changeColBounds(bd.var_id, bd.left, bd.right)
+
+                check_solver.changeColBounds(new_bound.var_id, new_bound.left, new_bound.right)
+                check_solver.run()
+                if check_solver.getModelStatus().value == 7:
+                    values.append((new_bound, check_solver.getInfo().objective_function_value, check_solver.getSolution().col_value))
+
+            if values:
+                min_value = min(values, key=lambda x: x[1])
+                if min_value[1] > node.dual_value:
+                #print(values)
+                #print(min_value[1], node.dual_value)
+                #input()
+                    node.bounds = node.add_bound(min_value[0])
+                    node.dual_value = min_value[1]
+                    node.solution = min_value[2]
+
+        if self.__stack:
+            new_min_stack_value = min(self.__stack, key=lambda x: x.dual_value).dual_value
+            if new_min_stack_value > old_min_stack_value:
+                print(old_min_stack_value, new_min_stack_value)
+                input()
 
     def __find_cut(self, node: Node) -> tuple[Bound, Bound]:
         heuristics = lambda x: abs(x - 0.5)
