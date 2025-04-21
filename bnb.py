@@ -6,8 +6,8 @@ from node import Node
 
 
 class BnB:
-    def __init__(self, path: str, eps_result: float = 1e-6, eps_integer: float = 1e-18,
-                 max_var_value: int = 10 ** 3) -> None:
+    def __init__(self, path: str, eps_result: float = 1e-4, eps_integer: float = 1e-9,
+                 max_var_value: int = 10 ** 30) -> None:
         self.__solver = highspy.Highs()
         self.__solver.readModel(path)
         self.__solver.silent()
@@ -191,6 +191,7 @@ class BnB:
         #presolver = Presolver(solver.getLp(), self.__generalize)
         #if not presolver.update_n_times(100):
         #    return
+        # return
 
         bounds_for_infeasible = []
         idx_removing_bounds = 0
@@ -218,9 +219,19 @@ class BnB:
             old_min_stack_value = min(self.__stack, key=lambda x: x.dual_value).dual_value
 
         for node in self.__stack:
+
+            '''
+            accept_flag = False
+            for bound in bounds_for_infeasible:
+                accept_flag = bound.solution_accept(node.solution)
+                if accept_flag:
+                     break
+            if not accept_flag:
+                break
+            '''
+
             values = []
             for bound in bounds_for_infeasible:
-                # TODO: add checking that the solution in the infeasible zone
                 check_solver = highspy.Highs()
                 check_solver.passModel(self.__solver.getModel())
                 check_solver.silent()
@@ -236,7 +247,10 @@ class BnB:
                 check_solver.changeColBounds(new_bound.var_id, new_bound.left, new_bound.right)
                 check_solver.run()
                 if check_solver.getModelStatus().value == 7:
-                    values.append((new_bound, check_solver.getInfo().objective_function_value, check_solver.getSolution().col_value))
+                    new_objective_function_value = check_solver.getInfo().objective_function_value
+                    values.append((new_bound, new_objective_function_value,  check_solver.getSolution().col_value))
+                    if new_objective_function_value == node.dual_value:
+                        break
 
                 check_solver = highspy.Highs()
                 check_solver.passModel(self.__solver.getModel())
@@ -253,7 +267,10 @@ class BnB:
                 check_solver.changeColBounds(new_bound.var_id, new_bound.left, new_bound.right)
                 check_solver.run()
                 if check_solver.getModelStatus().value == 7:
-                    values.append((new_bound, check_solver.getInfo().objective_function_value, check_solver.getSolution().col_value))
+                    new_objective_function_value = check_solver.getInfo().objective_function_value
+                    values.append((new_bound, new_objective_function_value, check_solver.getSolution().col_value))
+                    if new_objective_function_value == node.dual_value:
+                        break
 
             if values:
                 min_value = min(values, key=lambda x: x[1])

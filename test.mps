@@ -6,8 +6,6 @@ ROWS
  L  LIM3
  L  LIM4
  L  LIM5
- E  LIM6
- G  LIM7
 COLUMNS
     X       COST                -1
     X       LIM1                1
@@ -19,8 +17,6 @@ COLUMNS
     Y       LIM1                1
     Y       LIM2                3
     Y       LIM5                1
-    Y       LIM6                1
-    Y       LIM7                1
     Z       COST                -1
     Z       LIM4                1
     Z       LIM5                1
@@ -33,8 +29,6 @@ RHS
     RHS1    LIM3                13
     RHS1    LIM4                9
     RHS1    LIM5                11
-    RHS1    LIM6                0
-    RHS1    LIM7                1
 BOUNDS
     UI BND1      X              INF
 ENDATA
