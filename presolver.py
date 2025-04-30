@@ -66,35 +66,51 @@ class Var:
 
 class Graph:
     def __init__(self):
-        self.nodes: dict[int, list[Var]] = {}
-        self.edges: list[tuple[tuple[int, int], tuple[int, int]]] = []
+        self.__nodes: dict[int, list[Var]] = {}
+        self.__edges: list[tuple[tuple[int, int], tuple[int, int]]] = []
 
     def add_node(self, var, constr) -> None:
-        if var.index in self.nodes:
-            self.nodes[var.index].append(var.copy())
+        if var.index in self.__nodes:
+            self.__nodes[var.index].append(var.copy())
         else:
-            self.nodes[var.index] = [var.copy()]
+            self.__nodes[var.index] = [var.copy()]
 
         for another_var in constr.vars:
-            if another_var.index in self.nodes and another_var.index != var.index:
-                self.edges.append(((another_var.index, len(self.nodes[another_var.index]) - 1), 
-                                   (var.index, len(self.nodes[var.index]) - 1)))
+            if another_var.index in self.__nodes and another_var.index != var.index:
+                self.__edges.append(((another_var.index, len(self.__nodes[another_var.index]) - 1), 
+                                   (var.index, len(self.__nodes[var.index]) - 1)))
                 
-    def for_plot(self) -> tuple[list[tuple[int, Var]], list[tuple[tuple[int, Var], tuple[int, Var]]]]:
+    def for_plot(self) -> tuple[list[tuple[int, Var]], 
+                                list[tuple[tuple[int, Var], tuple[int, Var]]], 
+                                list[tuple[int, Var]], 
+                                list[tuple[int, Var]]]:
         node_idx = 0
+        origins = {}
+        drains = {}
         nodes = {}
         edges = []
-        for edge in self.edges:
+        for edge in self.__edges:
             if edge[0] not in nodes:
-                nodes[edge[0]] = (node_idx, self.nodes[edge[0][0]][edge[0][1]])
+                nodes[edge[0]] = (node_idx, self.__nodes[edge[0][0]][edge[0][1]])
                 node_idx += 1
             if edge[1] not in nodes:
-                nodes[edge[1]] = (node_idx, self.nodes[edge[1][0]][edge[1][1]])
+                nodes[edge[1]] = (node_idx, self.__nodes[edge[1][0]][edge[1][1]])
                 node_idx += 1
+            origins[nodes[edge[0]]] = True
+            drains[nodes[edge[1]]] = True
             
             edges.append((nodes[edge[0]], nodes[edge[1]]))
 
-        return [v for v in nodes.values()], edges
+        res_origins = []
+        for orig in origins:
+            if orig not in drains:
+                res_origins.append(orig)
+        res_drains = []
+        for dr in drains:
+            if dr not in origins:
+                res_drains.append(dr)
+
+        return [v for v in nodes.values()], edges, res_origins, res_drains
 
 
 class Presolver:
@@ -277,9 +293,8 @@ class Presolver:
 
 if __name__ == "__main__":
     #path = "test.lp"
-    #path = "test.mps"
-    path = "test2.lp"
-    #path = "supportcase16.mps"
+    #path = "test2.lp"
+    path = "supportcase16.mps"
     h = highspy.Highs()
     h.readModel(path)
     h.silent()
@@ -288,17 +303,8 @@ if __name__ == "__main__":
     presolver.update_n_times(100)
 
     print(presolver)
-    for n in presolver.graph.for_plot()[0]:
-        print(n[0], n[1].lower, n[1].name, n[1].upper)
-    #for var in presolver.get_converged_vars():
-    #    h.changeColBounds(var.index, var.lower, var.upper)
-    #help(h)
-    #help(h.getLp().a_matrix_)
-    #print(h.getLp().a_matrix_.value_)
-    #print(h.getLp().a_matrix_.start_)
-    #print(h.getColEntries(0)[1])
-    #print(h.getLp().offset_)
-    #print(h.getLp().row_upper_[0])
+    for var in presolver.get_converged_vars():
+        h.changeColBounds(var.index, var.lower, var.upper)
 
     h.run()
     list(map(print, list(zip(h.getSolution().col_value, list(map(lambda x: x.name, h.getVariables()))))))
