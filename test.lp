@@ -1,5 +1,5 @@
 minimize
-- x - 2y - r - z - w
+- x - 2y - z - w
 
 subject to
 x <= 2
