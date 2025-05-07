@@ -66,19 +66,25 @@ class Var:
 
 class Graph:
     def __init__(self):
-        self.__nodes: dict[int, list[Var]] = {}
+        self.__cycle_idx = 0
+        self.__nodes: dict[int, list[list[Var], int]] = {}
         self.__edges: list[tuple[tuple[int, int], tuple[int, int]]] = []
+
+    def new_cycle(self):
+        self.__cycle_idx += 1
 
     def add_node(self, var, constr) -> None:
         if var.index in self.__nodes:
-            self.__nodes[var.index].append(var.copy())
+            self.__nodes[var.index][0].append(var.copy())
+            self.__nodes[var.index][1] = self.__cycle_idx
         else:
-            self.__nodes[var.index] = [var.copy()]
+            self.__nodes[var.index] = [[var.copy()], self.__cycle_idx]
 
         for another_var in constr.vars:
-            if another_var.index in self.__nodes and another_var.index != var.index:
-                self.__edges.append(((another_var.index, len(self.__nodes[another_var.index]) - 1), 
-                                   (var.index, len(self.__nodes[var.index]) - 1)))
+            if another_var.index in self.__nodes and another_var.index != var.index and \
+                (self.__nodes[another_var.index][1] == self.__cycle_idx or self.__nodes[another_var.index][1] == self.__cycle_idx - 1):
+                self.__edges.append(((another_var.index, len(self.__nodes[another_var.index][0]) - 1), 
+                                   (var.index, len(self.__nodes[var.index][0]) - 1)))
                 
     def for_plot(self) -> tuple[list[tuple[int, Var]], 
                                 list[tuple[tuple[int, Var], tuple[int, Var]]], 
@@ -87,14 +93,14 @@ class Graph:
         node_idx = 0
         origins = {}
         drains = {}
-        nodes = {}
-        edges = []
+        nodes: dict[(int, int), (int, Var)] = {}
+        edges: list[(tuple[int, Var], tuple[int, Var])] = []
         for edge in self.__edges:
             if edge[0] not in nodes:
-                nodes[edge[0]] = (node_idx, self.__nodes[edge[0][0]][edge[0][1]])
+                nodes[edge[0]] = (node_idx, self.__nodes[edge[0][0]][0][edge[0][1]])
                 node_idx += 1
             if edge[1] not in nodes:
-                nodes[edge[1]] = (node_idx, self.__nodes[edge[1][0]][edge[1][1]])
+                nodes[edge[1]] = (node_idx, self.__nodes[edge[1][0]][0][edge[1][1]])
                 node_idx += 1
             origins[nodes[edge[0]]] = True
             drains[nodes[edge[1]]] = True
@@ -157,6 +163,7 @@ class Presolver:
         if self.__is_converged:
             return False
 
+        self.graph.new_cycle()
         self.__current_stage += 1
         have_changes = False
         for var in self.__vars:
