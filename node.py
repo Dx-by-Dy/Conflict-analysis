@@ -1,18 +1,39 @@
+
+
 from bound import Bound
+from helpers.var import Var
+from extended_highs_model import ExtendedHighsModel
+
 
 class Node:
-    def __init__(self, bounds: list[Bound], solution: list[float], dual_value: float) -> None:
-        self.bounds = bounds
-        self.solution = solution
-        self.dual_value = dual_value
+    def __init__(self, exh: ExtendedHighsModel):
+        exh.set_consistent()
+        self.exh = exh
+        self.external_bounds: dict[Var, Bound] = {}
 
-    def add_bound(self, bound: Bound) -> list[Bound]:
-        return [self.bounds[i].concat(bound) if i == bound.var_id else self.bounds[i] for i in range(len(self.bounds))]
+    def splitting(self):
+        cut = self.exh.solution.find_cut()
 
-    def __str__(self):
-        text = "Node{\n\tBounds:\n"
-        for bound in self.bounds:
-            text += "\t\t" + str(bound) + "\n"
-        text += "\tSolution:\n\t\t" + str(self.solution) + "\n"
-        text += "\tDual value:\n\t\t" + str(self.dual_value) + "\n}"
-        return text
+        if cut is None:
+            return None
+
+        left_exh = self.exh.copy()
+        right_exh = self.exh.copy()
+
+        left_exh.changeColBounds(
+            cut.var.index, cut.left_bound.lower, cut.left_bound.upper)
+        right_exh.changeColBounds(
+            cut.var.index, cut.right_bound.lower, cut.right_bound.upper)
+
+        left_node = Node(left_exh)
+        left_node.external_bounds = self.external_bounds.copy()
+        left_node.external_bounds[cut.var] = cut.left_bound
+
+        right_node = Node(right_exh)
+        right_node.external_bounds = self.external_bounds.copy()
+        right_node.external_bounds[cut.var] = cut.right_bound
+
+        return left_node, right_node
+
+    def is_feasible(self) -> bool:
+        return self.exh.solution.feasible

@@ -1,14 +1,26 @@
+from helpers.var import Var
+
+
 class Bound:
-    def __init__(self, var_id: int, left: int | float, right: int | float) -> None:
-        self.var_id = var_id
-        self.left = left
-        self.right = right
+    def __init__(self, lower: float, upper: float):
+        self.lower = lower
+        self.upper = upper
 
-    def concat(self, other):
-        return Bound(self.var_id, max(self.left, other.left), min(self.right, other.right))
-
-    def solution_accept(self, solution: list[float]):
-        return self.left <= solution[self.var_id] <= self.right
+    def copy(self):
+        return Bound(
+            lower=self.lower,
+            upper=self.upper
+        )
 
     def __repr__(self):
-        return f"Bound{{id: {self.var_id}, left: {self.left}, right: {self.right}}}"
+        return f"Bound {{lower: {self.lower}, upper: {self.upper}" + " }"
+
+
+class BnBCut:
+    def __init__(self, var: Var, left_bound: Bound, right_bound: Bound):
+        self.var = var
+        self.left_bound = left_bound
+        self.right_bound = right_bound
+
+    def __repr__(self):
+        return f"BnBCut: var= {self.var.__repr__()}, left_bound= {self.left_bound.__repr__()}, right_bound= {self.right_bound.__repr__()}"

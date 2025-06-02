@@ -1,58 +1,75 @@
+from extended_highs_model import Solution
+from enum import Enum
+
+
+class State(Enum):
+    InSolving = 0
+    Converged = 1
+    Infeasible = 2
+
+
 class MipState:
-    def __init__(self, eps_result) -> None:
-        self.__primal_value = float("inf")
-        self.__primal_solution = []
-        self.__dual_value = -float("inf")
-        self.__dual_solution = []
-        self.__eps_result = eps_result
+    def __init__(self, convergence_tolerance: float = 1e-4) -> None:
+        self.state = State.InSolving
+        self.primal_solution: Solution = Solution()
+        self.dual_solution: Solution = Solution()
+        self.convergence_tolerance = convergence_tolerance
 
-        self.__num_of_branch = 0
-        self.__num_of_infeasibility_nodes = 0
+        self.num_of_branch = 0
+        self.num_of_infeasibility_nodes = 0
 
-    def add_branch(self) -> None:
-        self.__num_of_branch += 1
+    def __check_convergency(self) -> None:
+        if self.primal_solution.objective is None or self.dual_solution.objective is None:
+            return
+        if self.primal_solution.objective <= self.dual_solution.objective or \
+            (self.primal_solution.objective - self.dual_solution.objective) \
+                / abs(self.dual_solution.objective) < self.convergence_tolerance:
+            self.state = State.Converged
+            return
 
-    def add_infeasibility_node(self) -> None:
-        self.__num_of_infeasibility_nodes += 1
+    def on_end(self) -> None:
+        if self.primal_solution.objective is None:
+            self.state = State.Infeasible
+            self.dual_solution = Solution()
+            return
+        if self.state == State.Converged:
+            self.dual_solution.copy_from_other(self.primal_solution)
+            return
+        if self.state == State.InSolving:
+            self.state == State.Converged
+            self.dual_solution.copy_from_other(self.primal_solution)
+            return
 
-    def update_primal_solution(self, primal_value: float, primal_solution: list[float]) -> None:
-        if primal_value < self.__primal_value:
-            self.__primal_value = primal_value
-            self.__primal_solution = primal_solution
-
-    def update_dual_solution(self, dual_value: float, dual_solution: list[float]) -> None:
-        self.__dual_value = dual_value
-        self.__dual_solution = dual_solution
-
-    def converged(self) -> bool:
-        if self.__primal_value <= self.__dual_value:
-            return True
-        return (self.__primal_value - self.__dual_value) / abs(self.__dual_value) < self.__eps_result
-
-    def primal_value(self) -> float:
-        return self.__primal_value
-
-    def primal_solution(self) -> list[float]:
-        return self.__primal_solution
-
-    def dual_value(self) -> float:
-        return self.__dual_value
-
-    def dual_solution(self) -> list[float]:
-        return self.__dual_solution
-
-    def __str__(self) -> str:
-        text = "MipState{\n\tprimal value: " + str(self.__primal_value)
-        if len(self.__primal_solution) < 20:
-            text += "\n\tprimal solution: " + str(self.__primal_solution)
+    def update_solution(self, solution: Solution) -> None:
+        if solution.is_primal:
+            if self.primal_solution.objective is None:
+                self.primal_solution.copy_from_other(solution)
+            elif solution.objective < self.primal_solution.objective:
+                self.primal_solution.copy_from_other(solution)
         else:
-            text += "\n\tprimal solution: [" + ", ".join(map(str, self.__primal_solution[:10])) + ", ..., " + ", ".join(map(str, self.__primal_solution[-10:])) + "]"
-        text += "\n\tdual value: " + str(self.__dual_value)
-        if len(self.__dual_solution) < 20:
-            text += "\n\tdual solution: " + str(self.__dual_solution)
+            self.dual_solution.copy_from_other(solution)
+        self.__check_convergency()
+
+    def __repr__(self):
+        if self.primal_solution.objective is None:
+            text = f"MipState [{self.state}] {{\n\tprimal value: None"
         else:
-            text += "\n\tdual solution: [" + ", ".join(map(str, self.__dual_solution[:10])) + ", ..., " + ", ".join(map(str, self.__dual_solution[-10:])) + "]"
-        text += "\n\tnum of infeasibility nodes: " + str(self.__num_of_infeasibility_nodes)
-        text += "\n\tnum of branch: " + str(self.__num_of_branch)
+            text = f"MipState [{self.state}] {{\n\tprimal value: {self.primal_solution.objective}"
+            if len(self.primal_solution.value[1]) < 20 or True:
+                text += "\n\tprimal solution: " + \
+                    str(self.primal_solution.value[1])
+            else:
+                text += "\n\tprimal solution: [" + ", ".join(map(str, self.primal_solution.value[1][:10])) + ", ..., " + ", ".join(
+                    map(str, self.primal_solution.value[1][-10:])) + "]"
+        if self.dual_solution.objective is None:
+            text += "\n\tdual value: None"
+        else:
+            text += "\n\tdual value: " + str(self.dual_solution.objective)
+            if len(self.dual_solution.value[1]) < 20 or True:
+                text += "\n\tdual solution: " + \
+                    str(self.dual_solution.value[1])
+            else:
+                text += "\n\tdual solution: [" + ", ".join(map(str, self.dual_solution.value[1][:10])) + ", ..., " + ", ".join(
+                    map(str, self.dual_solution.value[1][-10:])) + "]"
         text += "\n}"
         return text
