@@ -1,6 +1,3 @@
-
-
-
 class Constraint:
     def __init__(self, index: int, lower_bound: float, upper_bound: float) -> None:
         from helpers.var import Var
