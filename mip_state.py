@@ -37,14 +37,13 @@ class MipState:
             self.state = State.Converged
             return
 
-    def update_solution(self, solution: Solution, primal: bool = False) -> None:
-        if not primal:
-            self.dual_solution.copy_from_other(solution)
+    def update_solution(self, solution: Solution) -> None:
         if solution.is_primal:
-            if self.primal_solution.objective is None:
+            if self.primal_solution.objective is None or \
+                    solution.objective < self.primal_solution.objective:
                 self.primal_solution.copy_from_other(solution)
-            elif solution.objective < self.primal_solution.objective:
-                self.primal_solution.copy_from_other(solution)
+        else:
+            self.dual_solution.copy_from_other(solution)
         self.__check_convergency()
 
     def __repr__(self):

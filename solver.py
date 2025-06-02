@@ -31,44 +31,42 @@ class Solver:
         if left_node.is_feasible() and right_node.is_feasible():
             if left_node.exh.solution.objective < right_node.exh.solution.objective:
                 if not right_node.exh.solution.is_primal:
-                    if self.__mip_state.primal_solution.objective is None:
-                        self.__stack.append(right_node)
-                    elif right_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
+                    if self.__mip_state.primal_solution.objective is None or \
+                            right_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
                         self.__stack.append(right_node)
                 else:
                     self.__mip_state.update_solution(
-                        right_node.exh.solution, True)
+                        right_node.exh.solution)
 
                 if not left_node.exh.solution.is_primal:
-                    if self.__mip_state.primal_solution.objective is None:
-                        return left_node
-                    elif left_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
+                    if self.__mip_state.primal_solution.objective is None or \
+                            left_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
                         return left_node
                 else:
                     self.__mip_state.update_solution(
-                        left_node.exh.solution, True)
+                        left_node.exh.solution)
 
                 if self.__stack:
                     return self.__stack.pop()
                 return None
             else:
                 if not left_node.exh.solution.is_primal:
-                    if self.__mip_state.primal_solution.objective is None:
+                    if self.__mip_state.primal_solution.objective is None or \
+                            left_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
                         self.__stack.append(left_node)
-                    elif left_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
-                        self.__stack.append(left_node)
+
                 else:
                     self.__mip_state.update_solution(
-                        left_node.exh.solution, True)
+                        left_node.exh.solution)
 
                 if not right_node.exh.solution.is_primal:
-                    if self.__mip_state.primal_solution.objective is None:
+                    if self.__mip_state.primal_solution.objective is None or \
+                            right_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
                         return right_node
-                    elif right_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
-                        return right_node
+
                 else:
                     self.__mip_state.update_solution(
-                        right_node.exh.solution, True)
+                        right_node.exh.solution)
 
                 if self.__stack:
                     return self.__stack.pop()
@@ -78,12 +76,11 @@ class Solver:
             self.__mip_state.num_of_infeasible_nodes += 1
 
             if not left_node.exh.solution.is_primal:
-                if self.__mip_state.primal_solution.objective is None:
-                    return left_node
-                elif left_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
+                if self.__mip_state.primal_solution.objective is None or \
+                        left_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
                     return left_node
             else:
-                self.__mip_state.update_solution(left_node.exh.solution, True)
+                self.__mip_state.update_solution(left_node.exh.solution)
 
             if self.__stack:
                 return self.__stack.pop()
@@ -93,12 +90,11 @@ class Solver:
             self.__mip_state.num_of_infeasible_nodes += 1
 
             if not right_node.exh.solution.is_primal:
-                if self.__mip_state.primal_solution.objective is None:
-                    return right_node
-                elif right_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
+                if self.__mip_state.primal_solution.objective is None or \
+                        right_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
                     return right_node
             else:
-                self.__mip_state.update_solution(right_node.exh.solution, True)
+                self.__mip_state.update_solution(right_node.exh.solution)
 
             if self.__stack:
                 return self.__stack.pop()
