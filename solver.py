@@ -23,10 +23,12 @@ class Solver:
         if new_nodes is not None:
             left_node, right_node = new_nodes
         else:
-            if self.__stack:
-                return self.__stack.pop()
-            else:
-                return None
+            while self.__stack:
+                stack_node = self.__stack.pop()
+                if self.__mip_state.primal_solution.objective is None or \
+                        stack_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
+                    return stack_node
+            return None
 
         if left_node.is_feasible() and right_node.is_feasible():
             if left_node.exh.solution.objective < right_node.exh.solution.objective:
@@ -46,15 +48,17 @@ class Solver:
                     self.__mip_state.update_solution(
                         left_node.exh.solution)
 
-                if self.__stack:
-                    return self.__stack.pop()
+                while self.__stack:
+                    stack_node = self.__stack.pop()
+                    if self.__mip_state.primal_solution.objective is None or \
+                            stack_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
+                        return stack_node
                 return None
             else:
                 if not left_node.exh.solution.is_primal:
                     if self.__mip_state.primal_solution.objective is None or \
                             left_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
                         self.__stack.append(left_node)
-
                 else:
                     self.__mip_state.update_solution(
                         left_node.exh.solution)
@@ -63,13 +67,15 @@ class Solver:
                     if self.__mip_state.primal_solution.objective is None or \
                             right_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
                         return right_node
-
                 else:
                     self.__mip_state.update_solution(
                         right_node.exh.solution)
 
-                if self.__stack:
-                    return self.__stack.pop()
+                while self.__stack:
+                    stack_node = self.__stack.pop()
+                    if self.__mip_state.primal_solution.objective is None or \
+                            stack_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
+                        return stack_node
                 return None
 
         elif left_node.is_feasible() and not right_node.is_feasible():
@@ -82,8 +88,11 @@ class Solver:
             else:
                 self.__mip_state.update_solution(left_node.exh.solution)
 
-            if self.__stack:
-                return self.__stack.pop()
+            while self.__stack:
+                stack_node = self.__stack.pop()
+                if self.__mip_state.primal_solution.objective is None or \
+                        stack_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
+                    return stack_node
             return None
 
         elif not left_node.is_feasible() and right_node.is_feasible():
@@ -96,15 +105,21 @@ class Solver:
             else:
                 self.__mip_state.update_solution(right_node.exh.solution)
 
-            if self.__stack:
-                return self.__stack.pop()
+            while self.__stack:
+                stack_node = self.__stack.pop()
+                if self.__mip_state.primal_solution.objective is None or \
+                        stack_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
+                    return stack_node
             return None
 
         else:
             self.__mip_state.num_of_infeasible_nodes += 2
 
-            if self.__stack:
-                return self.__stack.pop()
+            while self.__stack:
+                stack_node = self.__stack.pop()
+                if self.__mip_state.primal_solution.objective is None or \
+                        stack_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
+                    return stack_node
             return None
 
     def start(self):
