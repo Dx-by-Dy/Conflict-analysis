@@ -17,17 +17,9 @@ class Solver:
         self.__mip_state.update_solution(self.__root_node.exh.solution)
 
     def solver_step(self, node: Node) -> Node | None:
-        print(self.__mip_state.primal_solution.objective,
-              self.__mip_state.dual_solution.objective)
-
-        if self.__stack:
-            self.__mip_state.update_solution(
-                min(self.__stack, key=lambda x: x.exh.solution.objective).exh.solution)
-
-        print(self.__mip_state.primal_solution.objective,
-              self.__mip_state.dual_solution.objective)
-
         new_nodes = node.splitting()
+        self.__mip_state.num_of_branch += 1
+
         if new_nodes is not None:
             left_node, right_node = new_nodes
         else:
@@ -44,7 +36,8 @@ class Solver:
                     elif right_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
                         self.__stack.append(right_node)
                 else:
-                    self.__mip_state.update_solution(right_node.exh.solution)
+                    self.__mip_state.update_solution(
+                        right_node.exh.solution, True)
 
                 if not left_node.exh.solution.is_primal:
                     if self.__mip_state.primal_solution.objective is None:
@@ -52,7 +45,8 @@ class Solver:
                     elif left_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
                         return left_node
                 else:
-                    self.__mip_state.update_solution(left_node.exh.solution)
+                    self.__mip_state.update_solution(
+                        left_node.exh.solution, True)
 
                 if self.__stack:
                     return self.__stack.pop()
@@ -64,7 +58,8 @@ class Solver:
                     elif left_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
                         self.__stack.append(left_node)
                 else:
-                    self.__mip_state.update_solution(left_node.exh.solution)
+                    self.__mip_state.update_solution(
+                        left_node.exh.solution, True)
 
                 if not right_node.exh.solution.is_primal:
                     if self.__mip_state.primal_solution.objective is None:
@@ -72,39 +67,46 @@ class Solver:
                     elif right_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
                         return right_node
                 else:
-                    self.__mip_state.update_solution(right_node.exh.solution)
+                    self.__mip_state.update_solution(
+                        right_node.exh.solution, True)
 
                 if self.__stack:
                     return self.__stack.pop()
                 return None
 
         elif left_node.is_feasible() and not right_node.is_feasible():
+            self.__mip_state.num_of_infeasible_nodes += 1
+
             if not left_node.exh.solution.is_primal:
                 if self.__mip_state.primal_solution.objective is None:
                     return left_node
                 elif left_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
                     return left_node
             else:
-                self.__mip_state.update_solution(left_node.exh.solution)
+                self.__mip_state.update_solution(left_node.exh.solution, True)
 
             if self.__stack:
                 return self.__stack.pop()
             return None
 
         elif not left_node.is_feasible() and right_node.is_feasible():
+            self.__mip_state.num_of_infeasible_nodes += 1
+
             if not right_node.exh.solution.is_primal:
                 if self.__mip_state.primal_solution.objective is None:
                     return right_node
                 elif right_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
                     return right_node
             else:
-                self.__mip_state.update_solution(right_node.exh.solution)
+                self.__mip_state.update_solution(right_node.exh.solution, True)
 
             if self.__stack:
                 return self.__stack.pop()
             return None
 
         else:
+            self.__mip_state.num_of_infeasible_nodes += 2
+
             if self.__stack:
                 return self.__stack.pop()
             return None
@@ -122,28 +124,16 @@ class Solver:
                 self.__mip_state.update_solution(
                     min(self.__stack, key=lambda x: x.exh.solution.objective).exh.solution)
 
+            print(f"primal value: {self.__mip_state.primal_solution.objective}\t" +
+                  f"dual value: {self.__mip_state.dual_solution.objective}\t" +
+                  f"number of branching: {self.__mip_state.num_of_branch}\t" +
+                  f"number of infisible nodes: {self.__mip_state.num_of_infeasible_nodes}"
+                  )
+
             if self.__mip_state.state == State.Converged:
-                return
+                break
 
         self.__mip_state.on_end()
 
     def result(self) -> str:
         return self.__mip_state.__repr__()
-
-
-if __name__ == "__main__":
-    from highspy import Highs
-
-    path = "test.lp"
-
-    sl = Solver(path)
-    sl.start()
-    print(sl.result())
-
-    h = Highs()
-    h.readModel(path)
-    h.silent()
-
-    h.run()
-    print(h.getSolution().col_value)
-    print(h.getInfo().objective_function_value)

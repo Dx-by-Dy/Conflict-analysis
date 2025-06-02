@@ -16,7 +16,7 @@ class MipState:
         self.convergence_tolerance = convergence_tolerance
 
         self.num_of_branch = 0
-        self.num_of_infeasibility_nodes = 0
+        self.num_of_infeasible_nodes = 0
 
     def __check_convergency(self) -> None:
         if self.primal_solution.objective is None or self.dual_solution.objective is None:
@@ -24,6 +24,7 @@ class MipState:
         if self.primal_solution.objective <= self.dual_solution.objective or \
             (self.primal_solution.objective - self.dual_solution.objective) \
                 / abs(self.dual_solution.objective) < self.convergence_tolerance:
+            self.dual_solution.copy_from_other(self.primal_solution)
             self.state = State.Converged
             return
 
@@ -32,22 +33,18 @@ class MipState:
             self.state = State.Infeasible
             self.dual_solution = Solution()
             return
-        if self.state == State.Converged:
-            self.dual_solution.copy_from_other(self.primal_solution)
-            return
         if self.state == State.InSolving:
-            self.state == State.Converged
-            self.dual_solution.copy_from_other(self.primal_solution)
+            self.state = State.Converged
             return
 
-    def update_solution(self, solution: Solution) -> None:
+    def update_solution(self, solution: Solution, primal: bool = False) -> None:
+        if not primal:
+            self.dual_solution.copy_from_other(solution)
         if solution.is_primal:
             if self.primal_solution.objective is None:
                 self.primal_solution.copy_from_other(solution)
             elif solution.objective < self.primal_solution.objective:
                 self.primal_solution.copy_from_other(solution)
-        else:
-            self.dual_solution.copy_from_other(solution)
         self.__check_convergency()
 
     def __repr__(self):
@@ -71,5 +68,7 @@ class MipState:
             else:
                 text += "\n\tdual solution: [" + ", ".join(map(str, self.dual_solution.value[1][:10])) + ", ..., " + ", ".join(
                     map(str, self.dual_solution.value[1][-10:])) + "]"
+        text += f"\n\tnumber of branching: {self.num_of_branch}"
+        text += f"\n\tnumber of infisible nodes: {self.num_of_infeasible_nodes}"
         text += "\n}"
         return text

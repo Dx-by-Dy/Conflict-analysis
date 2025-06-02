@@ -52,6 +52,14 @@ class Solution:
                 result_val = int(val)
 
         if result_var is not None:
+            if abs(result_val - result_var.lower) < self.primal_tolerance:
+                result_var.lower = result_val
+            if abs(result_val + 1 - result_var.upper) < self.primal_tolerance:
+                result_var.upper = result_val + 1
+
+            print(
+                f"var: {result_var}, var value: {self.value[1][result_var.index]}")
+
             return BnBCut(
                 var=result_var,
                 left_bound=Bound(lower=result_var.lower, upper=result_val),
@@ -75,6 +83,7 @@ class ExtendedHighsModel(highspy.Highs):
             return
 
         self.readModel(path_to_problem)
+        self.presolve()
 
         lp = self.getLp()
         for var_idx, (var_type, var_name, var_lower, var_upper) in enumerate(zip(lp.integrality_, lp.col_names_, lp.col_lower_, lp.col_upper_)):
@@ -110,6 +119,7 @@ class ExtendedHighsModel(highspy.Highs):
 
         res = ExtendedHighsModel()
         res.passModel(self.getModel())
+        res.setBasis(self.getBasis())
 
         for constr in self.constraints:
             res.constraints.append(constr.copy_empty())
