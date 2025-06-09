@@ -1,5 +1,6 @@
 import highspy
 
+from graph import Graph
 from helpers.constraint import Constraint
 from helpers.solution import Solution
 from helpers.var import Var
@@ -14,6 +15,8 @@ class ExtendedHighsModel(highspy.Highs):
         self.vars: list[Var] = []
         self.constraints: list[Constraint] = []
         self.solution: Solution = Solution(primal_tolerance=primal_tolerance)
+        self.presolver_stopped = False
+        self.graph = Graph()
 
         if path_to_problem is None:
             return
@@ -70,9 +73,12 @@ class ExtendedHighsModel(highspy.Highs):
                 nconstr.add_var(nvar, constr.info[var])
                 nvar.add_constraint(nconstr)
 
+        # TODO: change col bound!
+
         return res
 
-    def set_consistent(self):
+    def set_consistent(self) -> None:
+        self.update_vars_bounds()
         for var in self.vars:
             self.setContinuous(var.index)
 
@@ -85,6 +91,23 @@ class ExtendedHighsModel(highspy.Highs):
         for var in self.vars:
             if var.is_general:
                 self.setInteger(var.index)
+
+    def update_vars_bounds(self):
+        for i in range(10):
+            have_changes = False
+            for constr in self.constraints:
+                update_res = constr.update_vars()
+                if update_res is None:
+                    self.presolver_stopped = True
+                    return False
+                for var in update_res[0]:
+                    self.graph.add_connection(var, constr)
+                have_changes |= (len(update_res[0]) != 0 or update_res[1])
+            self.presolver_stopped = not have_changes
+            self.graph.add_iteration()
+            if self.presolver_stopped:
+                break
+        return True
 
     def get_var(self, index: int) -> Var:
         return self.vars[index]
@@ -107,20 +130,7 @@ class ExtendedHighsModel(highspy.Highs):
 
 
 if __name__ == "__main__":
-    ex = ExtendedHighsModel("test.lp")
-
-    ex_copy = ex.copy()
-
+    ex = ExtendedHighsModel("problems/problem_from_article_mod.lp")
     print(ex)
-    print(ex_copy)
-
-    # a = {ex.get_var(0): 1}
-
-    print(ex_copy.get_var(0) == ex.get_var(0))
-    print(id(ex_copy.get_var(0)), id(ex.get_var(0)))
-
-    v = list(ex.constraints[1].info.keys())[0]
-    v.lower = -100
-
-    # print(ex)
-    # print(ex_copy)
+    print(ex.update_vars_bounds())
+    print(ex)

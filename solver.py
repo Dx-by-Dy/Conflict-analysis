@@ -123,12 +123,17 @@ class Solver:
             return None
 
     def start(self):
+        graphes = []
         node = self.__stack.pop()
+
+        graphes += [node.exh.graph]
 
         while node is not None:
             node = self.solver_step(node=node)
 
             if node is not None:
+                graphes += [node.exh.graph]
+
                 self.__mip_state.update_solution(
                     min(self.__stack + [node], key=lambda x: x.exh.solution.objective).exh.solution)
             elif self.__stack:
@@ -145,6 +150,8 @@ class Solver:
                 break
 
         self.__mip_state.on_end()
+
+        return graphes
 
     def result(self) -> str:
         return self.__mip_state.__repr__()

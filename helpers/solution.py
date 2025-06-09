@@ -54,9 +54,6 @@ class Solution:
             if abs(result_val + 1 - result_var.upper) < self.primal_tolerance:
                 result_var.upper = result_val + 1
 
-            print(
-                f"var: {result_var}, var value: {self.value[1][result_var.index]}")
-
             return BnBCut(
                 var=result_var,
                 left_bound=Bound(lower=result_var.lower, upper=result_val),

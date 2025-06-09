@@ -1,7 +1,7 @@
 import argparse
+from graph import Graph
 from solver import Solver
 from highspy import Highs
-
 
 if __name__ == "__main__":
 
@@ -22,7 +22,7 @@ if __name__ == "__main__":
         h.silent()
         h.presolve()
 
-        #_ = list(map(print, dir(h)))
+        # _ = list(map(print, dir(h)))
 
         h.run()
         print(h.getSolution().col_value)

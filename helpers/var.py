@@ -62,6 +62,6 @@ class Var:
 
     def __repr__(self):
         if self.is_conv():
-            return f"Var({self.index}) [{self.name}] {{ value: {(self.lower + self.upper) / 2}, integer: {self.is_general}" + " }\n"
+            return f"Var({self.index}) [{self.name}] {{ value: {(self.lower + self.upper) / 2}, integer: {self.is_general}" + " }"
         else:
-            return f"Var({self.index}) [{self.name}] {{ lb: {self.lower}, ub: {self.upper}, integer: {self.is_general}" + " }\n"
+            return f"Var({self.index}) [{self.name}] {{ lb: {self.lower}, ub: {self.upper}, integer: {self.is_general}" + " }"
