@@ -10,6 +10,7 @@ class Solver:
 
         self.__root_node = Node(ExtendedHighsModel(
             path_to_problem, primal_tolerance))
+        self.__root_node.set_consistent()
         self.__stack: list[Node] = [self.__root_node]
 
         self.__mip_state = MipState(

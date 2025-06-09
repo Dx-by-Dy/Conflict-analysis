@@ -85,3 +85,22 @@ class Graph:
             edges.append((nodes[edge[0]], nodes[edge[1]]))
 
         return [v for v in nodes.values()], edges
+
+    def copy(self, new_vars: list[Var]):
+        new_graph = Graph()
+        new_graph.iteration = self.iteration
+
+        for state in self.nodes.vars_state:
+            new_graph.nodes.vars_state.append({})
+            for var, bounds in state.items():
+                new_graph.nodes.vars_state[-1][new_vars[var.index]] = []
+                for bound in bounds:
+                    new_graph.nodes.vars_state[-1][new_vars[var.index]].append(
+                        Bound(bound.lower, bound.upper))
+
+        for left_node, right_node in self.edges.vars_connections:
+            new_graph.edges.vars_connections.append(
+                ((left_node[0], new_vars[left_node[1].index], left_node[2]),
+                 (right_node[0], new_vars[right_node[1].index], right_node[2])))
+
+        return new_graph

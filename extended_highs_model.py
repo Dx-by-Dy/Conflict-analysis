@@ -55,7 +55,6 @@ class ExtendedHighsModel(highspy.Highs):
                 self.vars[var_idx].add_constraint(self.constraints[constr_idx])
 
     def copy(self):
-
         res = ExtendedHighsModel()
         res.passModel(self.getModel())
         res.setBasis(self.getBasis())
@@ -73,9 +72,16 @@ class ExtendedHighsModel(highspy.Highs):
                 nconstr.add_var(nvar, constr.info[var])
                 nvar.add_constraint(nconstr)
 
+        res.graph = self.graph.copy(res.vars)
+
         # TODO: change col bound!
 
         return res
+
+    def change_var_bounds(self, var: Var, lower: float, upper: float) -> None:
+        self.changeColBounds(var.index, lower, upper)
+        self.vars[var.index].lower = lower
+        self.vars[var.index].upper = upper
 
     def set_consistent(self) -> None:
         self.update_vars_bounds()
@@ -95,6 +101,7 @@ class ExtendedHighsModel(highspy.Highs):
     def update_vars_bounds(self):
         for i in range(10):
             have_changes = False
+            graph_changed = False
             for constr in self.constraints:
                 update_res = constr.update_vars()
                 if update_res is None:
@@ -102,9 +109,11 @@ class ExtendedHighsModel(highspy.Highs):
                     return False
                 for var in update_res[0]:
                     self.graph.add_connection(var, constr)
+                    graph_changed = True
                 have_changes |= (len(update_res[0]) != 0 or update_res[1])
             self.presolver_stopped = not have_changes
-            self.graph.add_iteration()
+            if graph_changed:
+                self.graph.add_iteration()
             if self.presolver_stopped:
                 break
         return True
