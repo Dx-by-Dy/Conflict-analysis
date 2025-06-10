@@ -8,10 +8,6 @@ from extended_highs_model import ExtendedHighsModel
 class Node:
     def __init__(self, exh: ExtendedHighsModel):
         self.exh = exh
-        self.external_bounds: dict[Var, Bound] = {}
-
-    def set_consistent(self) -> None:
-        self.exh.set_consistent()
 
     def splitting(self):
         cut = self.exh.solution.find_cut()
@@ -28,14 +24,10 @@ class Node:
             cut.var, cut.right_bound.lower, cut.right_bound.upper)
 
         left_node = Node(left_exh)
-        left_node.external_bounds = self.external_bounds.copy()
-        left_node.external_bounds[cut.var] = cut.left_bound
-        left_node.set_consistent()
+        left_node.exh.set_consistent(cut.var)
 
         right_node = Node(right_exh)
-        right_node.external_bounds = self.external_bounds.copy()
-        right_node.external_bounds[cut.var] = cut.right_bound
-        right_node.set_consistent()
+        right_node.exh.set_consistent(cut.var)
 
         return left_node, right_node
 

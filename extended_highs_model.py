@@ -1,5 +1,6 @@
 import highspy
 
+from bound import Bound
 from graph import Graph
 from helpers.constraint import Constraint
 from helpers.solution import Solution
@@ -7,7 +8,10 @@ from helpers.var import Var
 
 
 class ExtendedHighsModel(highspy.Highs):
-    def __init__(self, path_to_problem: str | None = None, primal_tolerance: float = 1e-9):
+    def __init__(self,
+                 with_presolve: bool,
+                 path_to_problem: str | None = None,
+                 primal_tolerance: float = 1e-9):
 
         super().__init__()
         self.silent()
@@ -16,6 +20,7 @@ class ExtendedHighsModel(highspy.Highs):
         self.constraints: list[Constraint] = []
         self.solution: Solution = Solution(primal_tolerance=primal_tolerance)
         self.presolver_stopped = False
+        self.with_presolve = with_presolve
         self.graph = Graph()
 
         if path_to_problem is None:
@@ -55,7 +60,7 @@ class ExtendedHighsModel(highspy.Highs):
                 self.vars[var_idx].add_constraint(self.constraints[constr_idx])
 
     def copy(self):
-        res = ExtendedHighsModel()
+        res = ExtendedHighsModel(self.with_presolve)
         res.passModel(self.getModel())
         res.setBasis(self.getBasis())
 
@@ -73,9 +78,6 @@ class ExtendedHighsModel(highspy.Highs):
                 nvar.add_constraint(nconstr)
 
         res.graph = self.graph.copy(res.vars)
-
-        # TODO: change col bound!
-
         return res
 
     def change_var_bounds(self, var: Var, lower: float, upper: float) -> None:
@@ -83,8 +85,13 @@ class ExtendedHighsModel(highspy.Highs):
         self.vars[var.index].lower = lower
         self.vars[var.index].upper = upper
 
-    def set_consistent(self) -> None:
-        self.update_vars_bounds()
+    def set_consistent(self, branched_var: Var | None = None) -> None:
+        if self.with_presolve:
+            if branched_var is not None:
+                self.graph.add_var_state(
+                    self.vars[branched_var.index], origin=True)
+            self.update_vars_bounds()
+
         for var in self.vars:
             self.setContinuous(var.index)
 
@@ -107,7 +114,11 @@ class ExtendedHighsModel(highspy.Highs):
                 if update_res is None:
                     self.presolver_stopped = True
                     return False
+                if update_res[1]:
+                    self.changeRowBounds(
+                        constr.index, constr.lower, constr.upper)
                 for var in update_res[0]:
+                    self.changeColBounds(var.index, var.lower, var.upper)
                     self.graph.add_connection(var, constr)
                     graph_changed = True
                 have_changes |= (len(update_res[0]) != 0 or update_res[1])

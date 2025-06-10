@@ -4,13 +4,17 @@ from node import Node
 
 
 class Solver:
-    def __init__(self, path_to_problem: str,
+    def __init__(self,
+                 path_to_problem: str,
+                 with_presolve: bool,
                  convergence_tolerance: float = 1e-4,
                  primal_tolerance: float = 1e-9) -> None:
 
         self.__root_node = Node(ExtendedHighsModel(
-            path_to_problem, primal_tolerance))
-        self.__root_node.set_consistent()
+            with_presolve,
+            path_to_problem,
+            primal_tolerance))
+        self.__root_node.exh.set_consistent()
         self.__stack: list[Node] = [self.__root_node]
 
         self.__mip_state = MipState(

@@ -38,6 +38,7 @@ class Constraint:
 
     def update_vars(self) -> tuple[list[Var], bool] | None:
         vars_changed = []
+        constr_changed = False
 
         for (var, coeff) in self.info.items():
             var_changed = False
