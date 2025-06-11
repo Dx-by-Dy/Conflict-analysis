@@ -128,16 +128,18 @@ class Solver:
             return None
 
     def start(self):
-        graphes = []
         node = self.__stack.pop()
-
-        graphes += [node.exh.graph]
+        # ---------------------------
+        graphes = [node.exh.graph]
+        # ---------------------------
 
         while node is not None:
             node = self.solver_step(node=node)
 
             if node is not None:
+                # ---------------------------
                 graphes += [node.exh.graph]
+                # ---------------------------
 
                 self.__mip_state.update_solution(
                     min(self.__stack + [node], key=lambda x: x.exh.solution.objective).exh.solution)
@@ -145,9 +147,9 @@ class Solver:
                 self.__mip_state.update_solution(
                     min(self.__stack, key=lambda x: x.exh.solution.objective).exh.solution)
 
-            print(f"primal value: {self.__mip_state.primal_solution.objective}\t" +
+            print(f"number of branching: {self.__mip_state.num_of_branch}\t" +
+                  f"primal value: {self.__mip_state.primal_solution.objective}\t" +
                   f"dual value: {self.__mip_state.dual_solution.objective}\t" +
-                  f"number of branching: {self.__mip_state.num_of_branch}\t" +
                   f"number of infisible nodes: {self.__mip_state.num_of_infeasible_nodes}"
                   )
 

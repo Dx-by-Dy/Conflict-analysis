@@ -47,6 +47,7 @@ class Graph:
         node_idx = self.add_node(var)
         self.add_all_to_index()
         self.origins.append(node_idx)
+        self.iteration = 1
 
     def next_iteration(self) -> None:
         self.iteration += 1
