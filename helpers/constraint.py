@@ -31,7 +31,7 @@ class Constraint:
             activity[1] += var_activity[1]
         return activity
 
-    def update_vars(self) -> list[Var] | None:
+    def update_vars(self, constrs_updates: list[dict[Var, Bound]]) -> bool:
         vars_for_update: dict[Var, Bound] = {}
 
         for (var, coeff) in self.info.items():
@@ -45,19 +45,23 @@ class Constraint:
             if new_bound is None:
                 continue
             if new_bound.lower > new_bound.upper:
-                return None
+                return False
+
             vars_for_update[var] = new_bound
 
-        vars_changed = []
-        for var, bound in vars_for_update.items():
-            var.lower = bound.lower
-            var.upper = bound.upper
-            vars_changed.append(var)
+        constrs_updates.append(vars_for_update)
+        return True
 
-        if len(vars_for_update) > 0:
-            self.update_lower_upper_by_activity()
+        # vars_changed = []
+        # for var, bound in vars_for_update.items():
+        #     var.lower = bound.lower
+        #     var.upper = bound.upper
+        #     vars_changed.append(var)
 
-        return vars_changed
+        # if len(vars_for_update) > 0:
+        #     self.update_lower_upper_by_activity()
+
+        # return vars_changed
 
     def copy_empty(self):
         return Constraint(

@@ -9,10 +9,10 @@ class Bound:
             upper=self.upper
         )
 
-    # def is_strong_upperset(self, other) -> bool:
-    #     if self.lower > other.lower or self.upper < other.upper:
-    #         return False
-    #     return self.lower < other.lower or self.upper > other.upper
+    def this_strong_subset(self, other) -> bool:
+        if self.lower < other.lower or self.upper > other.upper:
+            return True
+        return False
 
     def __repr__(self):
         return f"Bound {{lower: {self.lower}, upper: {self.upper}" + " }"

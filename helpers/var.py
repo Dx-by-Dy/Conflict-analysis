@@ -50,29 +50,24 @@ class Var:
 
         return Bound(updated_lower, updated_upper)
 
-    # def update_upper(self, value: float) -> bool:
-    #     if self.is_general and not isinf(value):
-    #         value = floor(value)
-    #         if value < self.upper:
-    #             self.upper = value
-    #             return True
-    #     else:
-    #         if value < self.upper:
-    #             self.upper = value
-    #             return True
-    #     return False
+    def is_valid_update(self, new_lower: float, new_upper: float) -> bool:
+        if self.is_general and not isinf(new_lower):
+            new_lower = ceil(new_lower)
+            if new_lower > self.lower:
+                return True
+        else:
+            if new_lower > self.lower:
+                return True
 
-    # def update_lower(self, value: float) -> bool:
-    #     if self.is_general and not isinf(value):
-    #         value = ceil(value)
-    #         if value > self.lower:
-    #             self.lower = value
-    #             return True
-    #     else:
-    #         if value > self.lower:
-    #             self.lower = value
-    #             return True
-    #     return False
+        if self.is_general and not isinf(new_upper):
+            new_upper = floor(new_upper)
+            if new_upper < self.upper:
+                return True
+        else:
+            if new_upper < self.upper:
+                return True
+
+        return False
 
     def copy_empty(self):
         return Var(

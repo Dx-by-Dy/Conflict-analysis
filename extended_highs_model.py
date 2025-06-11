@@ -107,18 +107,26 @@ class ExtendedHighsModel(highspy.Highs):
     def update_vars_bounds(self):
         for i in range(10):
             have_changes = False
+            constrs_updates: list[dict[Var, Bound]] = []
             for constr in self.constraints:
-                updated_vars = constr.update_vars()
-                if updated_vars is None:
+                if not constr.update_vars(constrs_updates):
                     self.presolver_stopped = True
                     return False
-                if len(updated_vars) == 0:
+
+            for constr_index, constr_update in enumerate(constrs_updates):
+                if len(constr_update) == 0:
                     continue
-                self.changeRowBounds(constr.index, constr.lower, constr.upper)
-                for var in updated_vars:
-                    self.changeColBounds(var.index, var.lower, var.upper)
-                self.graph.add_connections(updated_vars, constr)
+                for var, bound in constr_update.items():
+                    if not var.is_valid_update(bound.lower, bound.upper):
+                        continue
+                    self.change_var_bounds(var, bound.lower, bound.upper)
+                    self.graph.add_connection(
+                        var, self.constraints[constr_index])
+                self.constraints[constr_index].update_lower_upper_by_activity()
+                self.changeRowBounds(
+                    constr_index, self.constraints[constr_index].lower, self.constraints[constr_index].upper)
                 have_changes = True
+
             self.graph.next_iteration()
             self.presolver_stopped = not have_changes
             if self.presolver_stopped:

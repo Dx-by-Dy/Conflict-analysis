@@ -36,6 +36,7 @@ class Graph:
         self.nodes: list[GraphNode] = []
         self.edges: list[GraphEdge] = []
         self.origins: list[int] = []
+        self.end_of_index = 0
 
     def get_last_node_index(self, var: Var) -> int:
         return self.vars_index[var][-1]
@@ -44,38 +45,36 @@ class Graph:
         self.depth += 1
         self.iteration = 0
         node_idx = self.add_node(var)
-        self.add_to_index(node_idx)
+        self.add_all_to_index()
         self.origins.append(node_idx)
 
     def next_iteration(self) -> None:
         self.iteration += 1
+        self.add_all_to_index()
 
-    def add_to_index(self, node_index: int) -> None:
-        node = self.nodes[node_index]
-        if node.var in self.vars_index:
-            self.vars_index[node.var].append(node_index)
-        else:
-            self.vars_index[node.var] = [node_index]
+    def add_all_to_index(self) -> None:
+        for node_idx in range(self.end_of_index, len(self.nodes)):
+            node = self.nodes[node_idx]
+            if node.var in self.vars_index:
+                self.vars_index[node.var].append(node_idx)
+            else:
+                self.vars_index[node.var] = [node_idx]
+        self.end_of_index = len(self.nodes)
 
     def add_node(self, var: Var) -> int:
         self.nodes.append(GraphNode(self.depth, self.iteration, var))
         return len(self.nodes) - 1
 
-    def add_connections(self, vars: list[Var], constr: Constraint) -> None:
-        start_update_index = len(self.nodes)
-        for var in vars:
-            new_node_index = self.add_node(var)
+    def add_connection(self, var: Var,  constr: Constraint) -> None:
+        new_node_index = self.add_node(var)
 
-            for another_var in constr.info:
-                if another_var == var or another_var not in self.vars_index:
-                    continue
-                another_node_index = self.get_last_node_index(another_var)
+        for another_var in constr.info:
+            if another_var == var or another_var not in self.vars_index:
+                continue
+            another_node_index = self.get_last_node_index(another_var)
 
-                self.edges.append(
-                    GraphEdge(another_node_index, new_node_index))
-
-        for idx in range(start_update_index, len(self.nodes)):
-            self.add_to_index(idx)
+            self.edges.append(
+                GraphEdge(another_node_index, new_node_index))
 
     def to_plot_info(self) -> tuple[dict[int, GraphNode],
                                     list[tuple[int, int]],
@@ -114,5 +113,6 @@ class Graph:
 
         for node_index in self.origins:
             new_graph.origins.append(node_index)
+        new_graph.end_of_index = len(new_graph.nodes)
 
         return new_graph
