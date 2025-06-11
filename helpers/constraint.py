@@ -1,12 +1,10 @@
 from math import isinf
+from bound import Bound
+from helpers.var import Var
 
 
 class Constraint:
-    from helpers.var import Var
-
     def __init__(self, index: int, lower_bound: float, upper_bound: float) -> None:
-        from helpers.var import Var
-
         self.index = index
         self.lower = lower_bound
         self.upper = upper_bound
@@ -15,20 +13,17 @@ class Constraint:
     def add_var(self, var: Var, coeff: float) -> None:
         self.info[var] = coeff
 
-    def update_lower_upper_by_activity(self, activity: list[float, float]) -> bool:
-        have_changes = False
+    def update_lower_upper_by_activity(self) -> None:
+        activity = self.activity()
         if activity[0] > self.lower:
             self.lower = activity[0]
-            have_changes = True
         if activity[1] < self.upper:
             self.upper = activity[1]
-            have_changes = True
-        return have_changes
 
     def activity(self, without_var: Var | None = None) -> list[float, float]:
         activity = [0, 0]
         for (var, coeff) in self.info.items():
-            if var == without_var:
+            if without_var is not None and var == without_var:
                 continue
             var_activity = minmax(
                 var.lower * coeff, var.upper * coeff)
@@ -36,38 +31,33 @@ class Constraint:
             activity[1] += var_activity[1]
         return activity
 
-    def update_vars(self) -> tuple[list[Var], bool] | None:
-        vars_changed = []
-        constr_changed = False
+    def update_vars(self) -> list[Var] | None:
+        vars_for_update: dict[Var, Bound] = {}
 
         for (var, coeff) in self.info.items():
-            var_changed = False
-            var_activity = minmax(
-                var.lower * coeff, var.upper * coeff)
             activity_without_var = self.activity(without_var=var)
             if coeff > 0:
-                var_changed |= var.update_lower(
-                    (self.lower - activity_without_var[1]) / coeff)
-                var_changed |= var.update_upper(
-                    (self.upper - activity_without_var[0]) / coeff)
+                new_bound = var.update_lower_upper(
+                    (self.lower - activity_without_var[1]) / coeff, (self.upper - activity_without_var[0]) / coeff)
             else:
-                var_changed |= var.update_upper(
-                    (self.lower - activity_without_var[1]) / coeff)
-                var_changed |= var.update_lower(
-                    (self.upper - activity_without_var[0]) / coeff)
-            var_activity = minmax(
-                var.lower * coeff, var.upper * coeff)
-            activity = [activity_without_var[0] + var_activity[0],
-                        activity_without_var[1] + var_activity[1]]
-
-            if var_changed:
-                vars_changed.append(var)
-
-            if var.lower > var.upper:
+                new_bound = var.update_lower_upper(
+                    (self.upper - activity_without_var[0]) / coeff, (self.lower - activity_without_var[1]) / coeff)
+            if new_bound is None:
+                continue
+            if new_bound.lower > new_bound.upper:
                 return None
+            vars_for_update[var] = new_bound
 
-            constr_changed = self.update_lower_upper_by_activity(activity)
-        return vars_changed, constr_changed
+        vars_changed = []
+        for var, bound in vars_for_update.items():
+            var.lower = bound.lower
+            var.upper = bound.upper
+            vars_changed.append(var)
+
+        if len(vars_for_update) > 0:
+            self.update_lower_upper_by_activity()
+
+        return vars_changed
 
     def copy_empty(self):
         return Constraint(

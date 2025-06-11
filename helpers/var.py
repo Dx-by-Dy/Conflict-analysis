@@ -1,5 +1,7 @@
 from math import ceil, floor, isinf
 
+from bound import Bound
+
 
 class Var:
     def __init__(self, index: int, name: str, lower_bound: float, upper_bound: float,
@@ -20,29 +22,57 @@ class Var:
     def add_constraint(self, constr) -> None:
         self.in_constraints.append(constr)
 
-    def update_upper(self, value: float) -> bool:
-        if self.is_general and not isinf(value):
-            value = floor(value)
-            if value < self.upper:
-                self.upper = value
-                return True
+    def update_lower_upper(self, new_lower: float, new_upper: float) -> Bound | None:
+        updated_lower = None
+        if self.is_general and not isinf(new_lower):
+            new_lower = ceil(new_lower)
+            if new_lower > self.lower:
+                updated_lower = new_lower
         else:
-            if value < self.upper:
-                self.upper = value
-                return True
-        return False
+            if new_lower > self.lower:
+                updated_lower = new_lower
 
-    def update_lower(self, value: float) -> bool:
-        if self.is_general and not isinf(value):
-            value = ceil(value)
-            if value > self.lower:
-                self.lower = value
-                return True
+        updated_upper = None
+        if self.is_general and not isinf(new_upper):
+            new_upper = floor(new_upper)
+            if new_upper < self.upper:
+                updated_upper = new_upper
         else:
-            if value > self.lower:
-                self.lower = value
-                return True
-        return False
+            if new_upper < self.upper:
+                updated_upper = new_upper
+
+        if updated_lower is None and updated_upper is None:
+            return None
+        if updated_lower is None:
+            updated_lower = self.lower
+        if updated_upper is None:
+            updated_upper = self.upper
+
+        return Bound(updated_lower, updated_upper)
+
+    # def update_upper(self, value: float) -> bool:
+    #     if self.is_general and not isinf(value):
+    #         value = floor(value)
+    #         if value < self.upper:
+    #             self.upper = value
+    #             return True
+    #     else:
+    #         if value < self.upper:
+    #             self.upper = value
+    #             return True
+    #     return False
+
+    # def update_lower(self, value: float) -> bool:
+    #     if self.is_general and not isinf(value):
+    #         value = ceil(value)
+    #         if value > self.lower:
+    #             self.lower = value
+    #             return True
+    #     else:
+    #         if value > self.lower:
+    #             self.lower = value
+    #             return True
+    #     return False
 
     def copy_empty(self):
         return Var(

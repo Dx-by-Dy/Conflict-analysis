@@ -88,8 +88,7 @@ class ExtendedHighsModel(highspy.Highs):
     def set_consistent(self, branched_var: Var | None = None) -> None:
         if self.with_presolve:
             if branched_var is not None:
-                self.graph.add_var_state(
-                    self.vars[branched_var.index], origin=True)
+                self.graph.new_depth(self.vars[branched_var.index])
             self.update_vars_bounds()
 
         for var in self.vars:
@@ -108,23 +107,20 @@ class ExtendedHighsModel(highspy.Highs):
     def update_vars_bounds(self):
         for i in range(10):
             have_changes = False
-            graph_changed = False
             for constr in self.constraints:
-                update_res = constr.update_vars()
-                if update_res is None:
+                updated_vars = constr.update_vars()
+                if updated_vars is None:
                     self.presolver_stopped = True
                     return False
-                if update_res[1]:
-                    self.changeRowBounds(
-                        constr.index, constr.lower, constr.upper)
-                for var in update_res[0]:
+                if len(updated_vars) == 0:
+                    continue
+                self.changeRowBounds(constr.index, constr.lower, constr.upper)
+                for var in updated_vars:
                     self.changeColBounds(var.index, var.lower, var.upper)
-                    self.graph.add_connection(var, constr)
-                    graph_changed = True
-                have_changes |= (len(update_res[0]) != 0 or update_res[1])
+                self.graph.add_connections(updated_vars, constr)
+                have_changes = True
+            self.graph.next_iteration()
             self.presolver_stopped = not have_changes
-            if graph_changed:
-                self.graph.add_iteration()
             if self.presolver_stopped:
                 break
         return True

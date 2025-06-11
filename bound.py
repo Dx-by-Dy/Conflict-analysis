@@ -1,6 +1,3 @@
-from helpers.var import Var
-
-
 class Bound:
     def __init__(self, lower: float, upper: float):
         self.lower = lower
@@ -12,10 +9,10 @@ class Bound:
             upper=self.upper
         )
 
-    def is_strong_upperset(self, other) -> bool:
-        if self.lower > other.lower or self.upper < other.upper:
-            return False
-        return self.lower < other.lower or self.upper > other.upper
+    # def is_strong_upperset(self, other) -> bool:
+    #     if self.lower > other.lower or self.upper < other.upper:
+    #         return False
+    #     return self.lower < other.lower or self.upper > other.upper
 
     def __repr__(self):
         return f"Bound {{lower: {self.lower}, upper: {self.upper}" + " }"
@@ -25,6 +22,8 @@ class Bound:
 
 
 class BnBCut:
+    from helpers.var import Var
+
     def __init__(self, var: Var, left_bound: Bound, right_bound: Bound):
         self.var = var
         self.left_bound = left_bound
