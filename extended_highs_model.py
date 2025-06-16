@@ -137,7 +137,7 @@ class ExtendedHighsModel(highspy.Highs):
 
         text += "\tVars {\n"
         for var in self.vars:
-            text += "\t\t" + var.__repr__()
+            text += "\t\t" + var.__repr__() + "\n"
         text += "\t}\n\n"
 
         text += "\tConstaints {\n"

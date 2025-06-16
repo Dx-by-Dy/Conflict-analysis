@@ -172,5 +172,10 @@ class Solver:
         return self.graphes
         # --------------------------
 
+    # --------------------------------
+    def root_node(self) -> Node:
+        return self.__root_node
+    # --------------------------------
+
     def result(self) -> str:
         return self.__mip_state.__repr__()

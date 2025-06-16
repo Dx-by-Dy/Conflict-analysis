@@ -19,6 +19,13 @@ class Var:
     def is_conv(self) -> bool:
         return abs(self.upper - self.lower) <= self.convergence_tolerance
 
+    def value(self) -> float | None:
+        if not self.is_conv():
+            return None
+        if self.is_general:
+            return self.lower
+        return (self.lower + self.upper) / 2
+
     def add_constraint(self, constr) -> None:
         self.in_constraints.append(constr)
 
@@ -87,6 +94,6 @@ class Var:
 
     def __repr__(self):
         if self.is_conv():
-            return f"Var({self.index}) [{self.name}] {{ value: {(self.lower + self.upper) / 2}, integer: {self.is_general}" + " }"
+            return f"Var({self.index}) [{self.name}] {{ value: {self.value()}, integer: {self.is_general}" + " }"
         else:
             return f"Var({self.index}) [{self.name}] {{ lb: {self.lower}, ub: {self.upper}, integer: {self.is_general}" + " }"
