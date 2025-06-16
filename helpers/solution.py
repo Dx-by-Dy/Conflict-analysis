@@ -1,3 +1,4 @@
+import highspy
 from bound import BnBCut, Bound
 from helpers.var import Var
 
@@ -9,13 +10,13 @@ class Solution:
         self.value = value
         self.objective = objective
         self.primal_tolerance = primal_tolerance
-        self.feasible: bool | None = None
+        self.status: highspy.HighsModelStatus | None = None
         self.is_primal: bool | None = self.__is_primal()
 
-    def set_solution(self, objective: float, value: tuple[list[Var], list[float]], feasible: bool) -> None:
+    def set_solution(self, objective: float, value: tuple[list[Var], list[float]], status: highspy.HighsModelStatus) -> None:
         self.value = value
         self.objective = objective
-        self.feasible = feasible
+        self.status = status
         self.is_primal = self.__is_primal()
 
     def copy_from_other(self, other):
@@ -23,15 +24,21 @@ class Solution:
         self.objective = other.objective
         self.primal_tolerance = other.primal_tolerance
         self.is_primal = other.is_primal
-        self.feasible = other.feasible
+        self.status = other.status
 
     def __is_primal(self) -> bool | None:
-        if self.value is None or self.feasible != True:
+        if self.value is None or not self.is_feasible():
             return None
         for var, val in zip(self.value[0], self.value[1]):
             if var.is_general and abs(val - round(val)) >= self.primal_tolerance:
                 return False
         return True
+
+    def is_feasible(self) -> bool:
+        return self.status == highspy.HighsModelStatus.kOptimal
+
+    def is_infeasible(self) -> bool:
+        return self.status == highspy.HighsModelStatus.kInfeasible
 
     def find_cut(self) -> BnBCut | None:
         def heuristic(x: float): return abs(x % 1 - 0.5)

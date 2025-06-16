@@ -21,6 +21,10 @@ class Solver:
             convergence_tolerance=convergence_tolerance)
         self.__mip_state.update_solution(self.__root_node.exh.solution)
 
+        # -----------------------
+        self.graphes = []
+        # -----------------------
+
     def solver_step(self, node: Node) -> Node | None:
         new_nodes = node.splitting()
         self.__mip_state.num_of_branch += 1
@@ -34,6 +38,13 @@ class Solver:
                         stack_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
                     return stack_node
             return None
+
+        # ---------------------------------------------------------------------------------
+        self.graphes.append(
+            (left_node.exh.graph, left_node.exh.solution.is_infeasible()))
+        self.graphes.append(
+            (right_node.exh.graph, right_node.exh.solution.is_infeasible()))
+        # ---------------------------------------------------------------------------------
 
         if left_node.is_feasible() and right_node.is_feasible():
             if left_node.exh.solution.objective < right_node.exh.solution.objective:
@@ -84,7 +95,8 @@ class Solver:
                 return None
 
         elif left_node.is_feasible() and not right_node.is_feasible():
-            self.__mip_state.num_of_infeasible_nodes += 1
+            if right_node.exh.solution.is_infeasible():
+                self.__mip_state.num_of_infeasible_nodes += 1
 
             if not left_node.exh.solution.is_primal:
                 if self.__mip_state.primal_solution.objective is None or \
@@ -101,7 +113,8 @@ class Solver:
             return None
 
         elif not left_node.is_feasible() and right_node.is_feasible():
-            self.__mip_state.num_of_infeasible_nodes += 1
+            if left_node.exh.solution.is_infeasible():
+                self.__mip_state.num_of_infeasible_nodes += 1
 
             if not right_node.exh.solution.is_primal:
                 if self.__mip_state.primal_solution.objective is None or \
@@ -118,7 +131,10 @@ class Solver:
             return None
 
         else:
-            self.__mip_state.num_of_infeasible_nodes += 2
+            if left_node.exh.solution.is_infeasible():
+                self.__mip_state.num_of_infeasible_nodes += 1
+            if right_node.exh.solution.is_infeasible():
+                self.__mip_state.num_of_infeasible_nodes += 1
 
             while self.__stack:
                 stack_node = self.__stack.pop()
@@ -129,18 +145,11 @@ class Solver:
 
     def start(self):
         node = self.__stack.pop()
-        # ---------------------------
-        graphes = [node.exh.graph]
-        # ---------------------------
 
         while node is not None:
             node = self.solver_step(node=node)
 
             if node is not None:
-                # ---------------------------
-                graphes += [node.exh.graph]
-                # ---------------------------
-
                 self.__mip_state.update_solution(
                     min(self.__stack + [node], key=lambda x: x.exh.solution.objective).exh.solution)
             elif self.__stack:
@@ -158,7 +167,9 @@ class Solver:
 
         self.__mip_state.on_end()
 
-        return graphes
+        # --------------------------
+        return self.graphes
+        # --------------------------
 
     def result(self) -> str:
         return self.__mip_state.__repr__()

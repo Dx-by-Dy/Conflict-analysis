@@ -32,4 +32,4 @@ class Node:
         return left_node, right_node
 
     def is_feasible(self) -> bool:
-        return self.exh.solution.feasible
+        return self.exh.solution.is_feasible()

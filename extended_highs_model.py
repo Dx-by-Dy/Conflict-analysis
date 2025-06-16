@@ -59,6 +59,9 @@ class ExtendedHighsModel(highspy.Highs):
                 self.constraints[constr_idx].add_var(self.vars[var_idx], coeff)
                 self.vars[var_idx].add_constraint(self.constraints[constr_idx])
 
+        for var in self.vars:
+            self.setContinuous(var.index)
+
     def copy(self):
         res = ExtendedHighsModel(self.with_presolve)
         res.passModel(self.getModel())
@@ -91,18 +94,11 @@ class ExtendedHighsModel(highspy.Highs):
                 self.graph.new_depth(self.vars[branched_var.index])
             self.update_vars_bounds()
 
-        for var in self.vars:
-            self.setContinuous(var.index)
-
         self.run()
         self.solution.set_solution(objective=self.getInfo().objective_function_value,
                                    value=(
                                        self.vars, self.getSolution().col_value),
-                                   feasible=self.getModelStatus() == highspy.HighsModelStatus.kOptimal)
-
-        for var in self.vars:
-            if var.is_general:
-                self.setInteger(var.index)
+                                   status=self.getModelStatus())
 
     def update_vars_bounds(self):
         for i in range(10):
