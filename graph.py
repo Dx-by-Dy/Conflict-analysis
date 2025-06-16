@@ -3,19 +3,24 @@ from helpers.constraint import Constraint
 from helpers.var import Var
 
 
-# для индентификации вершины достаточно var, bound. Также требуется дополнительная информация о глубине вершины.
 class GraphNode:
     def __init__(self, depth: int, iteration: int, var: Var):
         self.depth = depth
         self.iteration = iteration
         self.var = var
         self.bound = Bound(var.lower, var.upper)
+        self.input_nodes: list[int] = []
+        self.output_nodes: list[int] = []
 
     def copy(self, new_vars: list[Var]):
         new_graph_node = GraphNode(
             self.depth, self.iteration, new_vars[self.var.index])
         new_graph_node.bound = Bound(
             new_graph_node.var.lower, new_graph_node.var.upper)
+        for node_idx in self.input_nodes:
+            new_graph_node.input_nodes.append(node_idx)
+        for node_idx in self.output_nodes:
+            new_graph_node.output_nodes.append(node_idx)
         return new_graph_node
 
 
@@ -36,17 +41,20 @@ class Graph:
         self.nodes: list[GraphNode] = []
         self.edges: list[GraphEdge] = []
         self.origins: list[int] = []
+        self.drains: list[set[int]] = [set() for _ in range(depth + 1)]
         self.end_of_index = 0
 
     def get_last_node_index(self, var: Var) -> int:
         return self.vars_index[var][-1]
 
     def new_depth(self, var: Var) -> None:
+        self.drains[self.depth] = set()
         self.depth += 1
         self.iteration = 0
         node_idx = self.add_node(var)
         self.add_all_to_index()
         self.origins.append(node_idx)
+        self.drains.append({node_idx})
         self.iteration = 1
 
     def next_iteration(self) -> None:
@@ -76,6 +84,15 @@ class Graph:
 
             self.edges.append(
                 GraphEdge(another_node_index, new_node_index))
+            self.add_node_connection(another_node_index, new_node_index)
+
+    def add_node_connection(self, from_node: int, in_node: int) -> None:
+        self.nodes[from_node].output_nodes.append(in_node)
+        self.nodes[in_node].input_nodes.append(from_node)
+
+        self.drains[self.depth].discard(from_node)
+        if len(self.nodes[in_node].output_nodes) == 0:
+            self.drains[self.depth].add(in_node)
 
     def to_plot_info(self) -> tuple[dict[int, GraphNode],
                                     list[tuple[int, int]],
@@ -94,6 +111,9 @@ class Graph:
                 nodes[edge.second_node_index] = self.nodes[edge.second_node_index]
 
             edges.append((edge.first_node_index, edge.second_node_index))
+
+        if len(self.origins) > 0 and self.origins[-1] not in origins:
+            origins.append(self.origins[-1])
 
         return nodes, edges, origins
 
@@ -117,3 +137,70 @@ class Graph:
         new_graph.end_of_index = len(new_graph.nodes)
 
         return new_graph
+
+    def find_FUIP(self) -> list[int]:
+        graph_cut: list[int] = []
+
+        current_implication_set: dict[int,
+                                      dict[int, set[int]]] = {self.depth: {}}
+        number_nodes_on_depth: dict[int, int] = {
+            self.depth: len(self.drains[self.depth])}
+        min_max_nodes_iteration_on_depth: dict[int, list[int, int]] = {
+            self.depth: [10**30, 0]}
+        for node_idx in self.drains[self.depth]:
+            if self.nodes[node_idx].iteration in current_implication_set[self.depth]:
+                current_implication_set[self.depth][self.nodes[node_idx].iteration].add(
+                    node_idx)
+            else:
+                current_implication_set[self.depth][self.nodes[node_idx].iteration] = {
+                    node_idx}
+            min_max_nodes_iteration_on_depth[self.depth][0] = min(
+                self.nodes[node_idx].iteration, min_max_nodes_iteration_on_depth[self.depth][0])
+            min_max_nodes_iteration_on_depth[self.depth][1] = max(
+                self.nodes[node_idx].iteration, min_max_nodes_iteration_on_depth[self.depth][1])
+
+        for depth in range(self.depth, 0, -1):
+            if depth not in min_max_nodes_iteration_on_depth:
+                continue
+            if min_max_nodes_iteration_on_depth[depth][0] == 0:
+                graph_cut.append(
+                    current_implication_set[depth][0].pop())
+                continue
+            for iteration in range(min_max_nodes_iteration_on_depth[depth][1], -1, -1):
+                if iteration == 0:
+                    graph_cut.append(
+                        current_implication_set[depth][iteration].pop())
+                    break
+                for node_idx in current_implication_set[depth][iteration]:
+                    for implication_node_idx in self.nodes[node_idx].input_nodes:
+                        implication_node = self.nodes[implication_node_idx]
+
+                        if implication_node.depth in current_implication_set:
+                            if implication_node.iteration in current_implication_set[implication_node.depth]:
+                                if implication_node_idx not in current_implication_set[implication_node.depth][implication_node.iteration]:
+                                    current_implication_set[implication_node.depth][implication_node.iteration].add(
+                                        implication_node_idx)
+                                    number_nodes_on_depth[implication_node.depth] += 1
+                            else:
+                                current_implication_set[implication_node.depth][implication_node.iteration] = {
+                                    implication_node_idx}
+                                number_nodes_on_depth[implication_node.depth] += 1
+                                min_max_nodes_iteration_on_depth[implication_node.depth][0] = min(
+                                    implication_node.iteration, min_max_nodes_iteration_on_depth[implication_node.depth][0])
+                                min_max_nodes_iteration_on_depth[implication_node.depth][1] = max(
+                                    implication_node.iteration, min_max_nodes_iteration_on_depth[implication_node.depth][1])
+                        else:
+                            current_implication_set[implication_node.depth] = {
+                                implication_node.iteration: {implication_node_idx}}
+                            number_nodes_on_depth[implication_node.depth] = 1
+                            min_max_nodes_iteration_on_depth[implication_node.depth] = [
+                                implication_node.iteration, implication_node.iteration]
+
+                number_nodes_on_depth[depth] -= len(
+                    current_implication_set[depth][iteration])
+                if number_nodes_on_depth[depth] == 1 and len(current_implication_set[depth][min_max_nodes_iteration_on_depth[depth][0]]) == 1:
+                    graph_cut.append(
+                        current_implication_set[depth][min_max_nodes_iteration_on_depth[depth][0]].pop())
+                    break
+
+        return graph_cut

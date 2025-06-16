@@ -22,7 +22,8 @@ class Solver:
         self.__mip_state.update_solution(self.__root_node.exh.solution)
 
         # -----------------------
-        self.graphes = []
+        self.graphes = [(self.__root_node.exh.graph,
+                         self.__root_node.exh.solution.is_infeasible())]
         # -----------------------
 
     def solver_step(self, node: Node) -> Node | None:
