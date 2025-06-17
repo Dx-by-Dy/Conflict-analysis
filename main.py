@@ -10,10 +10,12 @@ if __name__ == "__main__":
     parser.add_argument("--solver", default="enable")
     parser.add_argument("--highs", default="disable")
     parser.add_argument("--presolve", default="enable")
+    parser.add_argument("--cutting", default="enable")
     args = parser.parse_args()
 
     if args.solver == "enable":
-        sl = Solver(args.problem, args.presolve == "enable")
+        sl = Solver(args.problem, args.presolve ==
+                    "enable", args.cutting == "enable")
         sl.start()
         print(sl.result())
 

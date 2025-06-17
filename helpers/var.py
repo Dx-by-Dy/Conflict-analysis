@@ -29,6 +29,9 @@ class Var:
     def add_constraint(self, constr) -> None:
         self.in_constraints.append(constr)
 
+    def remove_last_constraint(self) -> None:
+        self.in_constraints.pop()
+
     def update_lower_upper(self, new_lower: float, new_upper: float) -> Bound | None:
         updated_lower = None
         if self.is_general and not isinf(new_lower):

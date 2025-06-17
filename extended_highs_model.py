@@ -83,6 +83,37 @@ class ExtendedHighsModel(highspy.Highs):
         res.graph = self.graph.copy(res.vars)
         return res
 
+    def add_row(self, number_of_negative: int, indices: list[int], values: list[float]) -> None:
+        self.addRow(1 - number_of_negative, float("inf"),
+                    len(indices), indices, values)
+        self.constraints.append(Constraint(len(self.constraints), 1 -
+                                           number_of_negative, float("inf")))
+        for index, coeff in zip(indices, values):
+            self.constraints[-1].add_var(self.vars[index], coeff)
+            self.vars[index].add_constraint(self.constraints[-1])
+
+    def delete_last_row(self) -> None:
+        constr = self.constraints.pop()
+        self.deleteRows(1, [constr.index])
+        for var in constr.info:
+            var.remove_last_constraint()
+
+    def validate_cut(self, indices: list[int], values: list[float]) -> bool:
+        for index, val in zip(indices, values):
+            if val == -1:
+                self.changeColBounds(index, 1, 1)
+            else:
+                self.changeColBounds(index, 0, 0)
+
+        self.run()
+        status = self.getModelStatus()
+
+        for index in indices:
+            self.changeColBounds(
+                index, self.vars[index].lower, self.vars[index].upper)
+
+        return status == highspy.HighsModelStatus.kInfeasible
+
     def change_var_bounds(self, var: Var, lower: float, upper: float) -> None:
         self.changeColBounds(var.index, lower, upper)
         self.vars[var.index].lower = lower

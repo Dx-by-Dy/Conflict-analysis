@@ -7,8 +7,12 @@ class Solver:
     def __init__(self,
                  path_to_problem: str,
                  with_presolve: bool,
+                 with_cutting: bool,
                  convergence_tolerance: float = 1e-4,
                  primal_tolerance: float = 1e-9) -> None:
+
+        self.with_presolve = with_presolve
+        self.with_cutting = with_cutting
 
         self.__root_node = Node(ExtendedHighsModel(
             with_presolve,
@@ -99,6 +103,15 @@ class Solver:
             if right_node.exh.solution.is_infeasible():
                 self.__mip_state.num_of_infeasible_nodes += 1
 
+                if self.with_presolve and self.with_cutting:
+                    number_of_negative, indices, values = right_node.exh.graph.get_cut()
+                    if self.__root_node.exh.validate_cut(indices, values):
+                        for node in self.__stack:
+                            node.exh.add_row(
+                                number_of_negative, indices, values)
+                        left_node.exh.add_row(
+                            number_of_negative, indices, values)
+
             if not left_node.exh.solution.is_primal:
                 if self.__mip_state.primal_solution.objective is None or \
                         left_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
@@ -117,6 +130,15 @@ class Solver:
             if left_node.exh.solution.is_infeasible():
                 self.__mip_state.num_of_infeasible_nodes += 1
 
+                if self.with_presolve and self.with_cutting:
+                    number_of_negative, indices, values = left_node.exh.graph.get_cut()
+                    if self.__root_node.exh.validate_cut(indices, values):
+                        for node in self.__stack:
+                            node.exh.add_row(
+                                number_of_negative, indices, values)
+                        right_node.exh.add_row(
+                            number_of_negative, indices, values)
+
             if not right_node.exh.solution.is_primal:
                 if self.__mip_state.primal_solution.objective is None or \
                         right_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
@@ -134,8 +156,23 @@ class Solver:
         else:
             if left_node.exh.solution.is_infeasible():
                 self.__mip_state.num_of_infeasible_nodes += 1
+
+                if self.with_presolve and self.with_cutting:
+                    number_of_negative, indices, values = left_node.exh.graph.get_cut()
+                    if self.__root_node.exh.validate_cut(indices, values):
+                        for node in self.__stack:
+                            node.exh.add_row(
+                                number_of_negative, indices, values)
+
             if right_node.exh.solution.is_infeasible():
                 self.__mip_state.num_of_infeasible_nodes += 1
+
+                if self.with_presolve and self.with_cutting:
+                    number_of_negative, indices, values = right_node.exh.graph.get_cut()
+                    if self.__root_node.exh.validate_cut(indices, values):
+                        for node in self.__stack:
+                            node.exh.add_row(
+                                number_of_negative, indices, values)
 
             while self.__stack:
                 stack_node = self.__stack.pop()
