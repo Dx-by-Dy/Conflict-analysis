@@ -5,13 +5,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("problem", type=str, help="Path to problem.")
     parser.add_argument("--solver", type=str, default="enable", choices=["enable", "disable"],
-                        help="Enable or disable custom solver. (default = `enable`)")
+                        help="Enable or disable the custom solver. (default = `enable`)")
     parser.add_argument("--highs", type=str, default="disable", choices=["enable", "disable"],
-                        help="Enable or disable Highs solver. (default = `disable`)")
+                        help="Enable or disable the Highs solver. (default = `disable`)")
     parser.add_argument("--presolve", type=str, default="enable", choices=["enable", "disable"],
-                        help="Enable or disable presolving in custom solver. (default = `enable`)")
+                        help="Enable or disable presolving in the custom solver. (default = `enable`)")
     parser.add_argument("--cutting", type=str, default="standard", choices=["yolo", "standard", "disable"],
-                        help="Enable or disable cutting in custom solver. (default = `standard`)")
+                        help="Enable or disable cutting in the custom solver. (default = `standard`)")
+    parser.add_argument("--silent", type=str, default="enable", choices=["enable", "disable"],
+                        help="Enable or disable writing info from the custom solver. (default = `enable`)")
     args = parser.parse_args()
 
     if args.solver == "enable":
@@ -24,8 +26,10 @@ if __name__ == "__main__":
         elif args.cutting == "yolo":
             cutting_flag = 2
 
-        sl = Solver(args.problem, args.presolve ==
-                    "enable", cutting_flag)
+        sl = Solver(args.problem,
+                    args.presolve == "enable",
+                    cutting_flag,
+                    args.silent == "enable")
         sl.start()
         print(sl.result())
 

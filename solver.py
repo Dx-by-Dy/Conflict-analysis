@@ -8,11 +8,13 @@ class Solver:
                  path_to_problem: str,
                  with_presolve: bool,
                  cutting_mod: int,
+                 silent: bool,
                  convergence_tolerance: float = 1e-4,
                  primal_tolerance: float = 1e-9) -> None:
 
-        self.with_presolve = with_presolve
-        self.cutting_mod = cutting_mod
+        self.__with_presolve = with_presolve
+        self.__cutting_mod = cutting_mod
+        self.__silent = silent
 
         self.__root_node = Node(ExtendedHighsModel(
             with_presolve,
@@ -104,11 +106,11 @@ class Solver:
             if right_node.exh.solution.is_infeasible():
                 self.__mip_state.number_of_infeasible_nodes += 1
 
-                if self.with_presolve and self.cutting_mod > 0:
+                if self.__with_presolve and self.__cutting_mod > 0:
                     number_of_negative, indices, values = right_node.exh.graph.get_cut()
-                    if self.cutting_mod < 2:
+                    if self.__cutting_mod < 2:
                         self.__mip_state.number_of_relaxations += 1
-                    if self.cutting_mod == 2 or self.__root_node.exh.validate_cut(indices, values):
+                    if self.__cutting_mod == 2 or self.__root_node.exh.validate_cut(indices, values):
                         for node in self.__stack:
                             node.exh.add_row(
                                 number_of_negative, indices, values)
@@ -133,11 +135,11 @@ class Solver:
             if left_node.exh.solution.is_infeasible():
                 self.__mip_state.number_of_infeasible_nodes += 1
 
-                if self.with_presolve and self.cutting_mod > 0:
+                if self.__with_presolve and self.__cutting_mod > 0:
                     number_of_negative, indices, values = left_node.exh.graph.get_cut()
-                    if self.cutting_mod < 2:
+                    if self.__cutting_mod < 2:
                         self.__mip_state.number_of_relaxations += 1
-                    if self.cutting_mod == 2 or self.__root_node.exh.validate_cut(indices, values):
+                    if self.__cutting_mod == 2 or self.__root_node.exh.validate_cut(indices, values):
                         for node in self.__stack:
                             node.exh.add_row(
                                 number_of_negative, indices, values)
@@ -162,11 +164,11 @@ class Solver:
             if left_node.exh.solution.is_infeasible():
                 self.__mip_state.number_of_infeasible_nodes += 1
 
-                if self.with_presolve and self.cutting_mod > 0:
+                if self.__with_presolve and self.__cutting_mod > 0:
                     number_of_negative, indices, values = left_node.exh.graph.get_cut()
-                    if self.cutting_mod < 2:
+                    if self.__cutting_mod < 2:
                         self.__mip_state.number_of_relaxations += 1
-                    if self.cutting_mod == 2 or self.__root_node.exh.validate_cut(indices, values):
+                    if self.__cutting_mod == 2 or self.__root_node.exh.validate_cut(indices, values):
                         for node in self.__stack:
                             node.exh.add_row(
                                 number_of_negative, indices, values)
@@ -174,11 +176,11 @@ class Solver:
             if right_node.exh.solution.is_infeasible():
                 self.__mip_state.number_of_infeasible_nodes += 1
 
-                if self.with_presolve and self.cutting_mod > 0:
+                if self.__with_presolve and self.__cutting_mod > 0:
                     number_of_negative, indices, values = right_node.exh.graph.get_cut()
-                    if self.cutting_mod < 2:
+                    if self.__cutting_mod < 2:
                         self.__mip_state.number_of_relaxations += 1
-                    if self.cutting_mod == 2 or self.__root_node.exh.validate_cut(indices, values):
+                    if self.__cutting_mod == 2 or self.__root_node.exh.validate_cut(indices, values):
                         for node in self.__stack:
                             node.exh.add_row(
                                 number_of_negative, indices, values)
@@ -203,11 +205,8 @@ class Solver:
                 self.__mip_state.update_solution(
                     min(self.__stack, key=lambda x: x.exh.solution.objective).exh.solution)
 
-            print(f"number of branches: {self.__mip_state.number_of_branches}\t" +
-                  f"primal value: {self.__mip_state.primal_solution.objective}\t" +
-                  f"dual value: {self.__mip_state.dual_solution.objective}\t" +
-                  f"number of infisible nodes: {self.__mip_state.number_of_infeasible_nodes}"
-                  )
+            if not self.__silent:
+                self.printing_info()
 
             if self.__mip_state.state == State.Converged:
                 break
@@ -218,10 +217,12 @@ class Solver:
         return self.graphes
         # --------------------------
 
-    # --------------------------------
-    def root_node(self) -> Node:
-        return self.__root_node
-    # --------------------------------
+    def printing_info(self) -> None:
+        print(f"number of branches: {self.__mip_state.number_of_branches}\t" +
+              f"primal value: {self.__mip_state.primal_solution.objective}\t" +
+              f"dual value: {self.__mip_state.dual_solution.objective}\t" +
+              f"number of infisible nodes: {self.__mip_state.number_of_infeasible_nodes}"
+              )
 
     def result(self) -> MipState:
         return self.__mip_state
