@@ -1,31 +1,41 @@
 import argparse
-from graph import Graph
-from solver import Solver
-from highspy import Highs
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--problem")
-    parser.add_argument("--solver", default="enable")
-    parser.add_argument("--highs", default="disable")
-    parser.add_argument("--presolve", default="enable")
-    parser.add_argument("--cutting", default="enable")
+    parser.add_argument("problem", type=str, help="Path to problem.")
+    parser.add_argument("--solver", type=str, default="enable", choices=["enable", "disable"],
+                        help="Enable or disable custom solver. (default = `enable`)")
+    parser.add_argument("--highs", type=str, default="disable", choices=["enable", "disable"],
+                        help="Enable or disable Highs solver. (default = `disable`)")
+    parser.add_argument("--presolve", type=str, default="enable", choices=["enable", "disable"],
+                        help="Enable or disable presolving in custom solver. (default = `enable`)")
+    parser.add_argument("--cutting", type=str, default="standard", choices=["yolo", "standard", "disable"],
+                        help="Enable or disable cutting in custom solver. (default = `standard`)")
     args = parser.parse_args()
 
     if args.solver == "enable":
+        from solver import Solver
+
+        cutting_flag = 0
+
+        if args.cutting == "standard":
+            cutting_flag = 1
+        elif args.cutting == "yolo":
+            cutting_flag = 2
+
         sl = Solver(args.problem, args.presolve ==
-                    "enable", args.cutting == "enable")
+                    "enable", cutting_flag)
         sl.start()
         print(sl.result())
 
     if args.highs == "enable":
+        from highspy import Highs
+
         h = Highs()
         h.readModel(args.problem)
         h.silent()
         h.presolve()
-
-        # _ = list(map(print, dir(h)))
 
         h.run()
         print(h.getSolution().col_value)
