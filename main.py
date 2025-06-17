@@ -14,6 +14,8 @@ if __name__ == "__main__":
                         help="Enable or disable cutting in the custom solver. (default = `standard`)")
     parser.add_argument("--silent", type=str, default="enable", choices=["enable", "disable"],
                         help="Enable or disable writing info from the custom solver. (default = `enable`)")
+    parser.add_argument("--fuip_size", type=int, default=1,
+                        help="Size of FUIP group in the custom solver. (default = `1`)")
     args = parser.parse_args()
 
     if args.solver == "enable":
@@ -29,7 +31,8 @@ if __name__ == "__main__":
         sl = Solver(args.problem,
                     args.presolve == "enable",
                     cutting_flag,
-                    args.silent == "enable")
+                    args.silent == "enable",
+                    args.fuip_size)
         sl.start()
         print(sl.result())
 

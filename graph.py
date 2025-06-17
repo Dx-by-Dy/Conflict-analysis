@@ -34,7 +34,7 @@ class GraphEdge:
 
 
 class Graph:
-    def __init__(self, depth: int = 0, iteration: int = 0):
+    def __init__(self, depth: int = 0, iteration: int = 0, fuip_size: int = 1):
         self.iteration = iteration
         self.depth = depth
         self.vars_index: dict[Var, list[int]] = {}
@@ -42,6 +42,7 @@ class Graph:
         self.edges: list[GraphEdge] = []
         self.origins: list[int] = []
         self.drains: list[set[int]] = [set()]
+        self.fuip_size = fuip_size
         self.end_of_index = 0
 
     def get_last_node_index(self, var: Var) -> int:
@@ -118,7 +119,7 @@ class Graph:
         return nodes, edges, origins
 
     def copy(self, new_vars: list[Var]):
-        new_graph = Graph(self.depth, self.iteration)
+        new_graph = Graph(self.depth, self.iteration, self.fuip_size)
 
         for var, states in self.vars_index.items():
             new_states = []
@@ -201,9 +202,9 @@ class Graph:
 
                 number_nodes_on_depth[depth] -= len(
                     current_implication_set[depth][iteration])
-                if number_nodes_on_depth[depth] == 1 and len(current_implication_set[depth][min_max_nodes_iteration_on_depth[depth][0]]) == 1:
-                    graph_cut.append(
-                        current_implication_set[depth][min_max_nodes_iteration_on_depth[depth][0]].pop())
+                if number_nodes_on_depth[depth] <= self.fuip_size:
+                    for node_idx in current_implication_set[depth][min_max_nodes_iteration_on_depth[depth][0]]:
+                        graph_cut.append(node_idx)
                     break
 
         return graph_cut

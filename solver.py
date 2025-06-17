@@ -9,6 +9,7 @@ class Solver:
                  with_presolve: bool,
                  cutting_mod: int,
                  silent: bool,
+                 fuip_size: int = 1,
                  convergence_tolerance: float = 1e-4,
                  primal_tolerance: float = 1e-9) -> None:
 
@@ -18,6 +19,7 @@ class Solver:
 
         self.__root_node = Node(ExtendedHighsModel(
             with_presolve,
+            fuip_size,
             path_to_problem,
             primal_tolerance))
         self.__root_node.exh.set_consistent()
