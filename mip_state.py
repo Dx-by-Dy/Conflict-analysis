@@ -18,6 +18,7 @@ class MipState:
         self.number_of_branches = 0
         self.number_of_infeasible_nodes = 0
         self.number_of_relaxations = 0
+        self.number_of_non_trivial_graph_cuts = 0
 
     def __check_convergency(self) -> None:
         if self.primal_solution.objective is None or self.dual_solution.objective is None:
@@ -71,5 +72,6 @@ class MipState:
         text += f"\n\tnumber of branches: {self.number_of_branches}"
         text += f"\n\tnumber of infisible nodes: {self.number_of_infeasible_nodes}"
         text += f"\n\tnumber of relaxations: {self.number_of_relaxations}"
+        text += f"\n\tnumber of non trivial graph cuts: {self.number_of_non_trivial_graph_cuts}"
         text += "\n}"
         return text

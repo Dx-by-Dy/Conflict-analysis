@@ -69,6 +69,8 @@ class Solver:
             if self.__with_presolve and self.__cutting_mod > 0:
                 graph_cut = node.exh.graph.get_graph_cut()
                 if not graph_cut.is_empty() and (not graph_cut.is_trivial or self.__trivial_graph_cut):
+                    if not graph_cut.is_trivial:
+                        self.__mip_state.number_of_non_trivial_graph_cuts += 1
                     if self.__cutting_check:
                         self.__mip_state.number_of_relaxations += 1
                     if not self.__cutting_check or self.__root_node.exh.validate_cut(graph_cut):
