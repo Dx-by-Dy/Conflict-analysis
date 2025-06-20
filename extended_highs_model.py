@@ -10,6 +10,7 @@ from helpers.var import Var
 class ExtendedHighsModel(highspy.Highs):
     def __init__(self,
                  with_presolve: bool,
+                 cutting_mod: int = 1,
                  fuip_size: int = 1,
                  path_to_problem: str | None = None,
                  primal_tolerance: float = 1e-9):
@@ -22,7 +23,7 @@ class ExtendedHighsModel(highspy.Highs):
         self.solution: Solution = Solution(primal_tolerance=primal_tolerance)
         self.presolver_stopped = False
         self.with_presolve = with_presolve
-        self.graph = Graph(fuip_size=fuip_size)
+        self.graph = Graph(fuip_size=fuip_size, cutting_mod=cutting_mod)
 
         if path_to_problem is None:
             return

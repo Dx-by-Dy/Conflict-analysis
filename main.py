@@ -10,8 +10,10 @@ if __name__ == "__main__":
                         help="Enable or disable the Highs solver. (default = `disable`)")
     parser.add_argument("--presolve", type=str, default="enable", choices=["enable", "disable"],
                         help="Enable or disable presolving in the custom solver. (default = `enable`)")
-    parser.add_argument("--cutting", type=str, default="standard", choices=["yolo", "standard", "disable"],
-                        help="Enable or disable cutting in the custom solver. (default = `standard`)")
+    parser.add_argument("--cutting", type=str, default="fuip", choices=["root", "fuip", "disable"],
+                        help="Cutting behaviour in the custom solver. (default = `fuip`)")
+    parser.add_argument("--cutting_check", type=str, default="disable", choices=["enable", "disable"],
+                        help="Enable or disable cutting check in the custom solver. (default = `disable`)")
     parser.add_argument("--silent", type=str, default="enable", choices=["enable", "disable"],
                         help="Enable or disable writing info from the custom solver. (default = `enable`)")
     parser.add_argument("--fuip_size", type=int, default=1,
@@ -21,18 +23,18 @@ if __name__ == "__main__":
     if args.solver == "enable":
         from solver import Solver
 
-        cutting_flag = 0
+        cutting_mod = 0
+        if args.cutting == "fuip":
+            cutting_mod = 1
+        elif args.cutting == "root":
+            cutting_mod = 2
 
-        if args.cutting == "standard":
-            cutting_flag = 1
-        elif args.cutting == "yolo":
-            cutting_flag = 2
-
-        sl = Solver(args.problem,
-                    args.presolve == "enable",
-                    cutting_flag,
-                    args.silent == "enable",
-                    args.fuip_size)
+        sl = Solver(path_to_problem=args.problem,
+                    with_presolve=args.presolve == "enable",
+                    cutting_check=args.cutting_check == "enable",
+                    cutting_mod=cutting_mod,
+                    silent=args.silent == "enable",
+                    fuip_size=args.fuip_size)
         sl.start()
         print(sl.result())
 

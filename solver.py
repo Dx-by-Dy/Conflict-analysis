@@ -7,6 +7,7 @@ class Solver:
     def __init__(self,
                  path_to_problem: str,
                  with_presolve: bool,
+                 cutting_check: bool,
                  cutting_mod: int,
                  silent: bool,
                  fuip_size: int = 1,
@@ -14,11 +15,13 @@ class Solver:
                  primal_tolerance: float = 1e-9) -> None:
 
         self.__with_presolve = with_presolve
+        self.__cutting_check = cutting_check
         self.__cutting_mod = cutting_mod
         self.__silent = silent
 
         self.__root_node = Node(ExtendedHighsModel(
             with_presolve,
+            cutting_mod,
             fuip_size,
             path_to_problem,
             primal_tolerance))
@@ -110,14 +113,15 @@ class Solver:
 
                 if self.__with_presolve and self.__cutting_mod > 0:
                     number_of_negative, indices, values = right_node.exh.graph.get_cut()
-                    if self.__cutting_mod < 2:
-                        self.__mip_state.number_of_relaxations += 1
-                    if self.__cutting_mod == 2 or self.__root_node.exh.validate_cut(indices, values):
-                        for node in self.__stack:
-                            node.exh.add_row(
+                    if len(indices) > 0:
+                        if self.__cutting_check:
+                            self.__mip_state.number_of_relaxations += 1
+                        if not self.__cutting_check or self.__root_node.exh.validate_cut(indices, values):
+                            for node in self.__stack:
+                                node.exh.add_row(
+                                    number_of_negative, indices, values)
+                            left_node.exh.add_row(
                                 number_of_negative, indices, values)
-                        left_node.exh.add_row(
-                            number_of_negative, indices, values)
 
             if not left_node.exh.solution.is_primal:
                 if self.__mip_state.primal_solution.objective is None or \
@@ -139,14 +143,15 @@ class Solver:
 
                 if self.__with_presolve and self.__cutting_mod > 0:
                     number_of_negative, indices, values = left_node.exh.graph.get_cut()
-                    if self.__cutting_mod < 2:
-                        self.__mip_state.number_of_relaxations += 1
-                    if self.__cutting_mod == 2 or self.__root_node.exh.validate_cut(indices, values):
-                        for node in self.__stack:
-                            node.exh.add_row(
+                    if len(indices) > 0:
+                        if self.__cutting_check:
+                            self.__mip_state.number_of_relaxations += 1
+                        if not self.__cutting_check or self.__root_node.exh.validate_cut(indices, values):
+                            for node in self.__stack:
+                                node.exh.add_row(
+                                    number_of_negative, indices, values)
+                            right_node.exh.add_row(
                                 number_of_negative, indices, values)
-                        right_node.exh.add_row(
-                            number_of_negative, indices, values)
 
             if not right_node.exh.solution.is_primal:
                 if self.__mip_state.primal_solution.objective is None or \
@@ -168,24 +173,26 @@ class Solver:
 
                 if self.__with_presolve and self.__cutting_mod > 0:
                     number_of_negative, indices, values = left_node.exh.graph.get_cut()
-                    if self.__cutting_mod < 2:
-                        self.__mip_state.number_of_relaxations += 1
-                    if self.__cutting_mod == 2 or self.__root_node.exh.validate_cut(indices, values):
-                        for node in self.__stack:
-                            node.exh.add_row(
-                                number_of_negative, indices, values)
+                    if len(indices) > 0:
+                        if self.__cutting_check:
+                            self.__mip_state.number_of_relaxations += 1
+                        if not self.__cutting_check or self.__root_node.exh.validate_cut(indices, values):
+                            for node in self.__stack:
+                                node.exh.add_row(
+                                    number_of_negative, indices, values)
 
             if right_node.exh.solution.is_infeasible():
                 self.__mip_state.number_of_infeasible_nodes += 1
 
                 if self.__with_presolve and self.__cutting_mod > 0:
                     number_of_negative, indices, values = right_node.exh.graph.get_cut()
-                    if self.__cutting_mod < 2:
-                        self.__mip_state.number_of_relaxations += 1
-                    if self.__cutting_mod == 2 or self.__root_node.exh.validate_cut(indices, values):
-                        for node in self.__stack:
-                            node.exh.add_row(
-                                number_of_negative, indices, values)
+                    if len(indices) > 0:
+                        if self.__cutting_check:
+                            self.__mip_state.number_of_relaxations += 1
+                        if not self.__cutting_check or self.__root_node.exh.validate_cut(indices, values):
+                            for node in self.__stack:
+                                node.exh.add_row(
+                                    number_of_negative, indices, values)
 
             while self.__stack:
                 stack_node = self.__stack.pop()

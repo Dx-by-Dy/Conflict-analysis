@@ -34,7 +34,7 @@ class GraphEdge:
 
 
 class Graph:
-    def __init__(self, depth: int = 0, iteration: int = 0, fuip_size: int = 1):
+    def __init__(self, depth: int = 0, iteration: int = 0, fuip_size: int = 1, cutting_mod: int = 1):
         self.iteration = iteration
         self.depth = depth
         self.vars_index: dict[Var, list[int]] = {}
@@ -43,6 +43,7 @@ class Graph:
         self.origins: list[int] = []
         self.drains: list[set[int]] = [set()]
         self.fuip_size = fuip_size
+        self.cutting_mod = cutting_mod
         self.end_of_index = 0
 
     def get_last_node_index(self, var: Var) -> int:
@@ -119,7 +120,8 @@ class Graph:
         return nodes, edges, origins
 
     def copy(self, new_vars: list[Var]):
-        new_graph = Graph(self.depth, self.iteration, self.fuip_size)
+        new_graph = Graph(self.depth, self.iteration,
+                          self.fuip_size, self.cutting_mod)
 
         for var, states in self.vars_index.items():
             new_states = []
@@ -209,18 +211,27 @@ class Graph:
 
         return graph_cut
 
+    def get_front_cut_nodes_indices(self) -> list[int]:
+        if self.cutting_mod == 0:
+            return []
+        elif self.cutting_mod == 1:
+            return self.find_FUIP()
+        elif self.cutting_mod == 2:
+            return self.origins
+        raise ValueError
+
     def get_cut(self) -> tuple[int, list[int], list[float]]:
-        fuips = self.find_FUIP()
+        nodes_indices = self.get_front_cut_nodes_indices()
 
         indices = []
         values = []
         number_of_negative = 0
-        for fuip in fuips:
-            if self.nodes[fuip].bound.lower > 0:
+        for node_idx in nodes_indices:
+            if self.nodes[node_idx].bound.lower > 0:
                 number_of_negative += 1
                 values.append(-1)
             else:
                 values.append(1)
-            indices.append(self.nodes[fuip].var.index)
+            indices.append(self.nodes[node_idx].var.index)
 
         return number_of_negative, indices, values
