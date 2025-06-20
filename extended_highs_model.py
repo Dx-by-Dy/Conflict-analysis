@@ -3,6 +3,7 @@ import highspy
 from bound import Bound
 from graph import Graph
 from helpers.constraint import Constraint
+from helpers.graph_cut import GraphCut
 from helpers.solution import Solution
 from helpers.var import Var
 
@@ -24,6 +25,7 @@ class ExtendedHighsModel(highspy.Highs):
         self.presolver_stopped = False
         self.with_presolve = with_presolve
         self.graph = Graph(fuip_size=fuip_size, cutting_mod=cutting_mod)
+        self.is_consistent: bool = False
 
         if path_to_problem is None:
             return
@@ -85,23 +87,25 @@ class ExtendedHighsModel(highspy.Highs):
         res.graph = self.graph.copy(res.vars)
         return res
 
-    def add_row(self, number_of_negative: int, indices: list[int], values: list[float]) -> None:
-        self.addRow(1 - number_of_negative, float("inf"),
-                    len(indices), indices, values)
+    def add_row(self, graph_cut: GraphCut) -> None:
+        self.is_consistent = False
+        self.addRow(1 - graph_cut.number_of_negative, float("inf"),
+                    len(graph_cut.indices), graph_cut.indices, graph_cut.values)
         self.constraints.append(Constraint(len(self.constraints), 1 -
-                                           number_of_negative, float("inf")))
-        for index, coeff in zip(indices, values):
+                                           graph_cut.number_of_negative, float("inf")))
+        for index, coeff in zip(graph_cut.indices, graph_cut.values):
             self.constraints[-1].add_var(self.vars[index], coeff)
             self.vars[index].add_constraint(self.constraints[-1])
 
     def delete_last_row(self) -> None:
+        self.is_consistent = False
         constr = self.constraints.pop()
         self.deleteRows(1, [constr.index])
         for var in constr.info:
             var.remove_last_constraint()
 
-    def validate_cut(self, indices: list[int], values: list[float]) -> bool:
-        for index, val in zip(indices, values):
+    def validate_cut(self, graph_cut: GraphCut) -> bool:
+        for index, val in zip(graph_cut.indices, graph_cut.values):
             if val == -1:
                 self.changeColBounds(index, 1, 1)
             else:
@@ -110,13 +114,14 @@ class ExtendedHighsModel(highspy.Highs):
         self.run()
         status = self.getModelStatus()
 
-        for index in indices:
+        for index in graph_cut.indices:
             self.changeColBounds(
                 index, self.vars[index].lower, self.vars[index].upper)
 
         return status == highspy.HighsModelStatus.kInfeasible
 
     def change_var_bounds(self, var: Var, lower: float, upper: float) -> None:
+        self.is_consistent = False
         self.changeColBounds(var.index, lower, upper)
         self.vars[var.index].lower = lower
         self.vars[var.index].upper = upper
@@ -132,6 +137,7 @@ class ExtendedHighsModel(highspy.Highs):
                                    value=(
                                        self.vars, self.getSolution().col_value),
                                    status=self.getModelStatus())
+        self.is_consistent = True
 
     def update_vars_bounds(self):
         for i in range(10):

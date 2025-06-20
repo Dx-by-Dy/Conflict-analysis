@@ -14,6 +14,8 @@ if __name__ == "__main__":
                         help="Cutting behaviour in the custom solver. (default = `fuip`)")
     parser.add_argument("--cutting_check", type=str, default="disable", choices=["enable", "disable"],
                         help="Enable or disable cutting check in the custom solver. (default = `disable`)")
+    parser.add_argument("--trivial_graph_cut", type=str, default="enable", choices=["enable", "disable"],
+                        help="Enable or disable trivial graph cuts in the custom solver. (default = `enable`)")
     parser.add_argument("--silent", type=str, default="enable", choices=["enable", "disable"],
                         help="Enable or disable writing info from the custom solver. (default = `enable`)")
     parser.add_argument("--fuip_size", type=int, default=1,
@@ -33,9 +35,10 @@ if __name__ == "__main__":
                     with_presolve=args.presolve == "enable",
                     cutting_check=args.cutting_check == "enable",
                     cutting_mod=cutting_mod,
+                    trivial_graph_cut=args.trivial_graph_cut == "enable",
                     silent=args.silent == "enable",
                     fuip_size=args.fuip_size)
-        sl.start()
+        sl.solve()
         print(sl.result())
 
     if args.highs == "enable":

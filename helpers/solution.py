@@ -40,7 +40,7 @@ class Solution:
     def is_infeasible(self) -> bool:
         return self.status == highspy.HighsModelStatus.kInfeasible
 
-    def find_cut(self) -> BnBCut | None:
+    def find_bnb_branch(self) -> BnBCut | None:
         def heuristic(x: float): return abs(x % 1 - 0.5)
         result_var: Var | None = None
         min_heuristic_value = 1

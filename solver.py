@@ -10,6 +10,7 @@ class Solver:
                  cutting_check: bool,
                  cutting_mod: int,
                  silent: bool,
+                 trivial_graph_cut: bool,
                  fuip_size: int = 1,
                  convergence_tolerance: float = 1e-4,
                  primal_tolerance: float = 1e-9) -> None:
@@ -17,6 +18,7 @@ class Solver:
         self.__with_presolve = with_presolve
         self.__cutting_check = cutting_check
         self.__cutting_mod = cutting_mod
+        self.__trivial_graph_cut = trivial_graph_cut
         self.__silent = silent
 
         self.__root_node = Node(ExtendedHighsModel(
@@ -37,185 +39,82 @@ class Solver:
                          self.__root_node.exh.solution.is_infeasible())]
         # -----------------------
 
-    def solver_step(self, node: Node) -> Node | None:
-        new_nodes = node.splitting()
+    def add_to_stack(self, first_node: Node, second_node: Node) -> None:
+        def add_to_stack_or_mip_state_update(node: Node) -> None:
+            if not node.exh.solution.is_primal:
+                if self.__mip_state.primal_solution.objective is None or \
+                        node.exh.solution.objective < self.__mip_state.primal_solution.objective:
+                    self.__stack.append(node)
+                #self.__mip_state.update_solution(node.exh.solution)
+            else:
+                self.__mip_state.update_solution(node.exh.solution)
+
+        def change_stack_and_mip_state_by_node(node: Node) -> None:
+            if node.exh.solution.is_infeasible():
+                self.__mip_state.number_of_infeasible_nodes += 1
+                if self.__with_presolve and self.__cutting_mod > 0:
+                    graph_cut = node.exh.graph.get_graph_cut()
+                    if not graph_cut.is_empty() and (not graph_cut.is_trivial or self.__trivial_graph_cut):
+                        if self.__cutting_check:
+                            self.__mip_state.number_of_relaxations += 1
+                        if not self.__cutting_check or self.__root_node.exh.validate_cut(graph_cut):
+                            for stack_node in self.__stack:
+                                stack_node.exh.add_row(graph_cut)
+
+        if not first_node.is_feasible() and not second_node.is_feasible():
+            change_stack_and_mip_state_by_node(first_node)
+            change_stack_and_mip_state_by_node(second_node)
+            return
+        if first_node.is_feasible() and second_node.is_feasible():
+            if first_node.exh.solution.objective > second_node.exh.solution.objective:
+                first_node, second_node = second_node, first_node
+            add_to_stack_or_mip_state_update(first_node)
+            add_to_stack_or_mip_state_update(second_node)
+            return
+        if second_node.is_feasible():
+            first_node, second_node = second_node, first_node
+        add_to_stack_or_mip_state_update(first_node)
+        change_stack_and_mip_state_by_node(second_node)
+
+    def step(self, node: Node):
+        if not node.exh.is_consistent:
+            self.__mip_state.number_of_relaxations += 1
+            node.exh.set_consistent()
+            if not node.is_feasible():
+                self.change_stack_and_mip_state_by_infeasible_node()
+                return
+
+        new_nodes = node.branching()
         self.__mip_state.number_of_branches += 1
 
         if new_nodes is not None:
             left_node, right_node = new_nodes
+
+            # ---------------------------------------------------------------------------------
+            self.graphes.append(
+                (left_node.exh.graph, left_node.exh.solution.is_infeasible()))
+            self.graphes.append(
+                (right_node.exh.graph, right_node.exh.solution.is_infeasible()))
+            # ---------------------------------------------------------------------------------
+
             self.__mip_state.number_of_relaxations += 2
-        else:
-            while self.__stack:
-                stack_node = self.__stack.pop()
-                if self.__mip_state.primal_solution.objective is None or \
-                        stack_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
-                    return stack_node
-            return None
+            self.add_to_stack(left_node, right_node)
 
-        # ---------------------------------------------------------------------------------
-        self.graphes.append(
-            (left_node.exh.graph, left_node.exh.solution.is_infeasible()))
-        self.graphes.append(
-            (right_node.exh.graph, right_node.exh.solution.is_infeasible()))
-        # ---------------------------------------------------------------------------------
+    def solve(self):
+        while self.__stack:
 
-        if left_node.is_feasible() and right_node.is_feasible():
-            if left_node.exh.solution.objective < right_node.exh.solution.objective:
-                if not right_node.exh.solution.is_primal:
-                    if self.__mip_state.primal_solution.objective is None or \
-                            right_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
-                        self.__stack.append(right_node)
-                else:
+            node = self.__stack.pop()
+            if self.__mip_state.primal_solution.objective is None or \
+                    node.exh.solution.objective < self.__mip_state.primal_solution.objective:
+
+                self.step(node)
+
+                if self.__stack:
                     self.__mip_state.update_solution(
-                        right_node.exh.solution)
+                        min(self.__stack, key=lambda x: x.exh.solution.objective).exh.solution)
 
-                if not left_node.exh.solution.is_primal:
-                    if self.__mip_state.primal_solution.objective is None or \
-                            left_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
-                        return left_node
-                else:
-                    self.__mip_state.update_solution(
-                        left_node.exh.solution)
-
-                while self.__stack:
-                    stack_node = self.__stack.pop()
-                    if self.__mip_state.primal_solution.objective is None or \
-                            stack_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
-                        return stack_node
-                return None
-            else:
-                if not left_node.exh.solution.is_primal:
-                    if self.__mip_state.primal_solution.objective is None or \
-                            left_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
-                        self.__stack.append(left_node)
-                else:
-                    self.__mip_state.update_solution(
-                        left_node.exh.solution)
-
-                if not right_node.exh.solution.is_primal:
-                    if self.__mip_state.primal_solution.objective is None or \
-                            right_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
-                        return right_node
-                else:
-                    self.__mip_state.update_solution(
-                        right_node.exh.solution)
-
-                while self.__stack:
-                    stack_node = self.__stack.pop()
-                    if self.__mip_state.primal_solution.objective is None or \
-                            stack_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
-                        return stack_node
-                return None
-
-        elif left_node.is_feasible() and not right_node.is_feasible():
-            if right_node.exh.solution.is_infeasible():
-                self.__mip_state.number_of_infeasible_nodes += 1
-
-                if self.__with_presolve and self.__cutting_mod > 0:
-                    number_of_negative, indices, values = right_node.exh.graph.get_cut()
-                    if len(indices) > 0:
-                        if self.__cutting_check:
-                            self.__mip_state.number_of_relaxations += 1
-                        if not self.__cutting_check or self.__root_node.exh.validate_cut(indices, values):
-                            for node in self.__stack:
-                                node.exh.add_row(
-                                    number_of_negative, indices, values)
-                            left_node.exh.add_row(
-                                number_of_negative, indices, values)
-
-            if not left_node.exh.solution.is_primal:
-                if self.__mip_state.primal_solution.objective is None or \
-                        left_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
-                    return left_node
-            else:
-                self.__mip_state.update_solution(left_node.exh.solution)
-
-            while self.__stack:
-                stack_node = self.__stack.pop()
-                if self.__mip_state.primal_solution.objective is None or \
-                        stack_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
-                    return stack_node
-            return None
-
-        elif not left_node.is_feasible() and right_node.is_feasible():
-            if left_node.exh.solution.is_infeasible():
-                self.__mip_state.number_of_infeasible_nodes += 1
-
-                if self.__with_presolve and self.__cutting_mod > 0:
-                    number_of_negative, indices, values = left_node.exh.graph.get_cut()
-                    if len(indices) > 0:
-                        if self.__cutting_check:
-                            self.__mip_state.number_of_relaxations += 1
-                        if not self.__cutting_check or self.__root_node.exh.validate_cut(indices, values):
-                            for node in self.__stack:
-                                node.exh.add_row(
-                                    number_of_negative, indices, values)
-                            right_node.exh.add_row(
-                                number_of_negative, indices, values)
-
-            if not right_node.exh.solution.is_primal:
-                if self.__mip_state.primal_solution.objective is None or \
-                        right_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
-                    return right_node
-            else:
-                self.__mip_state.update_solution(right_node.exh.solution)
-
-            while self.__stack:
-                stack_node = self.__stack.pop()
-                if self.__mip_state.primal_solution.objective is None or \
-                        stack_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
-                    return stack_node
-            return None
-
-        else:
-            if left_node.exh.solution.is_infeasible():
-                self.__mip_state.number_of_infeasible_nodes += 1
-
-                if self.__with_presolve and self.__cutting_mod > 0:
-                    number_of_negative, indices, values = left_node.exh.graph.get_cut()
-                    if len(indices) > 0:
-                        if self.__cutting_check:
-                            self.__mip_state.number_of_relaxations += 1
-                        if not self.__cutting_check or self.__root_node.exh.validate_cut(indices, values):
-                            for node in self.__stack:
-                                node.exh.add_row(
-                                    number_of_negative, indices, values)
-
-            if right_node.exh.solution.is_infeasible():
-                self.__mip_state.number_of_infeasible_nodes += 1
-
-                if self.__with_presolve and self.__cutting_mod > 0:
-                    number_of_negative, indices, values = right_node.exh.graph.get_cut()
-                    if len(indices) > 0:
-                        if self.__cutting_check:
-                            self.__mip_state.number_of_relaxations += 1
-                        if not self.__cutting_check or self.__root_node.exh.validate_cut(indices, values):
-                            for node in self.__stack:
-                                node.exh.add_row(
-                                    number_of_negative, indices, values)
-
-            while self.__stack:
-                stack_node = self.__stack.pop()
-                if self.__mip_state.primal_solution.objective is None or \
-                        stack_node.exh.solution.objective < self.__mip_state.primal_solution.objective:
-                    return stack_node
-            return None
-
-    def start(self):
-        node = self.__stack.pop()
-
-        while node is not None:
-            node = self.solver_step(node=node)
-
-            if node is not None:
-                self.__mip_state.update_solution(
-                    min(self.__stack + [node], key=lambda x: x.exh.solution.objective).exh.solution)
-            elif self.__stack:
-                self.__mip_state.update_solution(
-                    min(self.__stack, key=lambda x: x.exh.solution.objective).exh.solution)
-
-            if not self.__silent:
-                self.printing_info()
+                if not self.__silent:
+                    self.printing_info()
 
             if self.__mip_state.state == State.Converged:
                 break

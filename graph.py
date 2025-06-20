@@ -1,5 +1,6 @@
 from bound import Bound
 from helpers.constraint import Constraint
+from helpers.graph_cut import GraphCut
 from helpers.var import Var
 
 
@@ -211,7 +212,7 @@ class Graph:
 
         return graph_cut
 
-    def get_front_cut_nodes_indices(self) -> list[int]:
+    def get_front_nodes_indices(self) -> list[int]:
         if self.cutting_mod == 0:
             return []
         elif self.cutting_mod == 1:
@@ -220,12 +221,13 @@ class Graph:
             return self.origins
         raise ValueError
 
-    def get_cut(self) -> tuple[int, list[int], list[float]]:
-        nodes_indices = self.get_front_cut_nodes_indices()
+    def get_graph_cut(self) -> GraphCut:
+        nodes_indices = self.get_front_nodes_indices()
 
         indices = []
         values = []
         number_of_negative = 0
+        is_trivial = True
         for node_idx in nodes_indices:
             if self.nodes[node_idx].bound.lower > 0:
                 number_of_negative += 1
@@ -234,4 +236,7 @@ class Graph:
                 values.append(1)
             indices.append(self.nodes[node_idx].var.index)
 
-        return number_of_negative, indices, values
+            if self.nodes[node_idx].iteration > 0:
+                is_trivial = False
+
+        return GraphCut(number_of_negative, indices, values, is_trivial)

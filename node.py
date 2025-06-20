@@ -1,7 +1,3 @@
-
-
-from bound import Bound
-from helpers.var import Var
 from extended_highs_model import ExtendedHighsModel
 
 
@@ -9,25 +5,25 @@ class Node:
     def __init__(self, exh: ExtendedHighsModel):
         self.exh = exh
 
-    def splitting(self):
-        cut = self.exh.solution.find_cut()
+    def branching(self):
+        bnb_branch = self.exh.solution.find_bnb_branch()
 
-        if cut is None:
+        if bnb_branch is None:
             return None
 
         left_exh = self.exh.copy()
         right_exh = self.exh.copy()
 
         left_exh.change_var_bounds(
-            cut.var, cut.left_bound.lower, cut.left_bound.upper)
+            bnb_branch.var, bnb_branch.left_bound.lower, bnb_branch.left_bound.upper)
         right_exh.change_var_bounds(
-            cut.var, cut.right_bound.lower, cut.right_bound.upper)
+            bnb_branch.var, bnb_branch.right_bound.lower, bnb_branch.right_bound.upper)
 
         left_node = Node(left_exh)
-        left_node.exh.set_consistent(cut.var)
+        left_node.exh.set_consistent(bnb_branch.var)
 
         right_node = Node(right_exh)
-        right_node.exh.set_consistent(cut.var)
+        right_node.exh.set_consistent(bnb_branch.var)
 
         return left_node, right_node
 
