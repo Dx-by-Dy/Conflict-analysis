@@ -45,25 +45,12 @@ class Solver:
                 if self.__mip_state.primal_solution.objective is None or \
                         node.exh.solution.objective < self.__mip_state.primal_solution.objective:
                     self.__stack.append(node)
-                #self.__mip_state.update_solution(node.exh.solution)
             else:
                 self.__mip_state.update_solution(node.exh.solution)
 
-        def change_stack_and_mip_state_by_node(node: Node) -> None:
-            if node.exh.solution.is_infeasible():
-                self.__mip_state.number_of_infeasible_nodes += 1
-                if self.__with_presolve and self.__cutting_mod > 0:
-                    graph_cut = node.exh.graph.get_graph_cut()
-                    if not graph_cut.is_empty() and (not graph_cut.is_trivial or self.__trivial_graph_cut):
-                        if self.__cutting_check:
-                            self.__mip_state.number_of_relaxations += 1
-                        if not self.__cutting_check or self.__root_node.exh.validate_cut(graph_cut):
-                            for stack_node in self.__stack:
-                                stack_node.exh.add_row(graph_cut)
-
         if not first_node.is_feasible() and not second_node.is_feasible():
-            change_stack_and_mip_state_by_node(first_node)
-            change_stack_and_mip_state_by_node(second_node)
+            self.change_stack_and_mip_state_by_node(first_node)
+            self.change_stack_and_mip_state_by_node(second_node)
             return
         if first_node.is_feasible() and second_node.is_feasible():
             if first_node.exh.solution.objective > second_node.exh.solution.objective:
@@ -74,14 +61,26 @@ class Solver:
         if second_node.is_feasible():
             first_node, second_node = second_node, first_node
         add_to_stack_or_mip_state_update(first_node)
-        change_stack_and_mip_state_by_node(second_node)
+        self.change_stack_and_mip_state_by_node(second_node)
 
-    def step(self, node: Node):
+    def change_stack_and_mip_state_by_node(self, node: Node) -> None:
+        if node.exh.solution.is_infeasible():
+            self.__mip_state.number_of_infeasible_nodes += 1
+            if self.__with_presolve and self.__cutting_mod > 0:
+                graph_cut = node.exh.graph.get_graph_cut()
+                if not graph_cut.is_empty() and (not graph_cut.is_trivial or self.__trivial_graph_cut):
+                    if self.__cutting_check:
+                        self.__mip_state.number_of_relaxations += 1
+                    if not self.__cutting_check or self.__root_node.exh.validate_cut(graph_cut):
+                        for stack_node in self.__stack:
+                            stack_node.exh.add_row(graph_cut)
+
+    def step(self, node: Node) -> None:
         if not node.exh.is_consistent:
             self.__mip_state.number_of_relaxations += 1
             node.exh.set_consistent()
             if not node.is_feasible():
-                self.change_stack_and_mip_state_by_infeasible_node()
+                self.change_stack_and_mip_state_by_node(node)
                 return
 
         new_nodes = node.branching()
