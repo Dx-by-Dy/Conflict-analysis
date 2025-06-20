@@ -177,6 +177,8 @@ class Graph:
                     graph_cut.append(
                         current_implication_set[depth][iteration].pop())
                     break
+                if iteration not in current_implication_set[depth]:
+                    continue
                 for node_idx in current_implication_set[depth][iteration]:
                     for implication_node_idx in self.nodes[node_idx].input_nodes:
                         implication_node = self.nodes[implication_node_idx]
