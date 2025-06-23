@@ -209,6 +209,7 @@ class Graph:
                                 for node_idx in current_implication_set[depth][it]:
                                     if node_idx not in removed_nodes:
                                         graph_cut.append(node_idx)
+                        ready = True
                         break
                 if ready:
                     break
