@@ -1,7 +1,23 @@
 from extended_highs_model import Solution
 from enum import Enum, auto
+from node import Branchability, Node
 
-from node import Node
+
+class BranchabilityStatistic:
+    def __init__(self):
+        self.statistic: dict[Branchability, int] = {}
+        for item in list(Branchability):
+            self.statistic[item] = 0
+
+    def add(self, item: Branchability) -> None:
+        self.statistic[item] += 1
+
+    def __repr__(self, tabs: int = 0):
+        text = "\t" * tabs + "BranchabilityStatistic {\n"
+        for item, value in self.statistic.items():
+            text += "\t" * tabs + f"\t{item}: {value}\n"
+        text += "\t" * tabs + "}"
+        return text
 
 
 class State(Enum):
@@ -18,7 +34,7 @@ class MipState:
         self.convergence_tolerance = convergence_tolerance
 
         self.number_of_branches = 0
-        self.number_of_infeasible_nodes = 0
+        self.branchability_statistic = BranchabilityStatistic()
         self.number_of_relaxations = 0
         self.number_of_non_trivial_graph_cuts = 0
 
@@ -75,8 +91,8 @@ class MipState:
                 text += "\n\tdual solution: [" + ", ".join(map(str, self.dual_solution.value[1][:10])) + ", ..., " + ", ".join(
                     map(str, self.dual_solution.value[1][-10:])) + "]"
         text += f"\n\tnumber of branches: {self.number_of_branches}"
-        text += f"\n\tnumber of infisible nodes: {self.number_of_infeasible_nodes}"
         text += f"\n\tnumber of relaxations: {self.number_of_relaxations}"
         text += f"\n\tnumber of non trivial graph cuts: {self.number_of_non_trivial_graph_cuts}"
+        text += "\n" + self.branchability_statistic.__repr__(1)
         text += "\n}"
         return text

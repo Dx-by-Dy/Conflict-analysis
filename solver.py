@@ -11,6 +11,7 @@ class Solver:
                  cutting_mod: int,
                  silent: bool,
                  trivial_graph_cut: bool,
+                 use_dropped: bool,
                  fuip_size: int = 1,
                  convergence_tolerance: float = 1e-4,
                  primal_tolerance: float = 1e-9) -> None:
@@ -19,6 +20,7 @@ class Solver:
         self.__cutting_check = cutting_check
         self.__cutting_mod = cutting_mod
         self.__trivial_graph_cut = trivial_graph_cut
+        self.__use_dropped = use_dropped
         self.__silent = silent
 
         self.__root_node = Node(ExtendedHighsModel(
@@ -89,18 +91,28 @@ class Solver:
                 self.__realize_potential(left_node, False)
                 self.__realize_potential(right_node, False)
             else:
+                self.__mip_state.branchability_statistic.add(
+                    Branchability.Branchable)
                 self.__stack.append(node)
         elif node.branchability == Branchability.IntFeasible:
+            self.__mip_state.branchability_statistic.add(
+                Branchability.IntFeasible)
             self.__mip_state.update_solution(node.exh.solution)
         elif node.branchability == Branchability.Infeasible:
+            self.__mip_state.branchability_statistic.add(
+                Branchability.Infeasible)
             self.__update_by_infeasible_node(node)
         elif node.branchability == Branchability.Dropped:
-            pass
+            self.__mip_state.branchability_statistic.add(
+                Branchability.Dropped)
+            if self.__use_dropped:
+                self.__update_by_infeasible_node(node)
         elif node.branchability == Branchability.Unknown:
-            pass
+            self.__mip_state.branchability_statistic.add(
+                Branchability.Unknown)
 
     def __update_by_infeasible_node(self, node: Node) -> None:
-        self.__mip_state.number_of_infeasible_nodes += 1
+        # self.__mip_state.number_of_infeasible_nodes += 1
         if self.__with_presolve and self.__cutting_mod > 0:
             graph_cut = node.exh.graph.get_graph_cut()
             if not graph_cut.is_empty() and (not graph_cut.is_trivial or self.__trivial_graph_cut):
@@ -142,8 +154,7 @@ class Solver:
     def printing_info(self) -> None:
         print(f"number of branches: {self.__mip_state.number_of_branches}\t" +
               f"primal value: {self.__mip_state.primal_solution.objective}\t" +
-              f"dual value: {self.__mip_state.dual_solution.objective}\t" +
-              f"number of infisible nodes: {self.__mip_state.number_of_infeasible_nodes}"
+              f"dual value: {self.__mip_state.dual_solution.objective}\t"
               )
 
     def result(self) -> MipState:
