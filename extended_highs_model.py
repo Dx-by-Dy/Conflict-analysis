@@ -127,6 +127,9 @@ class ExtendedHighsModel(highspy.Highs):
         self.vars[var.index].upper = upper
 
     def set_consistent(self, branched_var: Var | None = None) -> None:
+        if self.is_consistent:
+            return
+
         if self.with_presolve:
             if branched_var is not None:
                 self.graph.new_depth(self.vars[branched_var.index])

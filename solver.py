@@ -1,6 +1,6 @@
 from extended_highs_model import ExtendedHighsModel
 from mip_state import MipState, State
-from node import Node
+from node import Branchability, Node, sort_nodes
 
 
 class Solver:
@@ -28,94 +28,107 @@ class Solver:
             path_to_problem,
             primal_tolerance))
         self.__root_node.exh.set_consistent()
-        self.__stack: list[Node] = [self.__root_node]
 
         self.__mip_state = MipState(
             convergence_tolerance=convergence_tolerance)
         self.__mip_state.update_solution(self.__root_node.exh.solution)
+
+        self.__set_branchability(self.__root_node)
+        self.__stack: list[Node] = [self.__root_node]
 
         # -----------------------
         self.graphes = [(self.__root_node.exh.graph,
                          self.__root_node.exh.solution.is_infeasible())]
         # -----------------------
 
-    def add_to_stack(self, first_node: Node, second_node: Node) -> None:
-        def add_to_stack_or_mip_state_update(node: Node) -> None:
-            if not node.exh.solution.is_primal:
-                if self.__mip_state.primal_solution.objective is None or \
-                        node.exh.solution.objective < self.__mip_state.primal_solution.objective:
-                    self.__stack.append(node)
-            else:
-                self.__mip_state.update_solution(node.exh.solution)
-
-        if not first_node.is_feasible() and not second_node.is_feasible():
-            self.change_stack_and_mip_state_by_node(first_node)
-            self.change_stack_and_mip_state_by_node(second_node)
-            return
-        if first_node.is_feasible() and second_node.is_feasible():
-            if first_node.exh.solution.objective > second_node.exh.solution.objective:
-                first_node, second_node = second_node, first_node
-            add_to_stack_or_mip_state_update(first_node)
-            add_to_stack_or_mip_state_update(second_node)
-            return
-        if second_node.is_feasible():
-            first_node, second_node = second_node, first_node
-        add_to_stack_or_mip_state_update(first_node)
-        self.change_stack_and_mip_state_by_node(second_node)
-
-    def change_stack_and_mip_state_by_node(self, node: Node) -> None:
+    def __set_branchability(self, node: Node) -> None:
         if node.exh.solution.is_infeasible():
-            self.__mip_state.number_of_infeasible_nodes += 1
-            if self.__with_presolve and self.__cutting_mod > 0:
-                graph_cut = node.exh.graph.get_graph_cut()
-                if not graph_cut.is_empty() and (not graph_cut.is_trivial or self.__trivial_graph_cut):
-                    if not graph_cut.is_trivial:
-                        self.__mip_state.number_of_non_trivial_graph_cuts += 1
-                    if self.__cutting_check:
-                        self.__mip_state.number_of_relaxations += 1
-                    if not self.__cutting_check or self.__root_node.exh.validate_cut(graph_cut):
-                        for stack_node in self.__stack:
-                            stack_node.exh.add_row(graph_cut)
+            node.branchability = Branchability.Infeasible
+        elif node.exh.solution.is_feasible() and node.exh.solution.is_primal:
+            node.branchability = Branchability.IntFeasible
+        elif node.exh.solution.is_feasible() and self.__mip_state.check_branchability_of_node(node):
+            node.branchability = Branchability.Branchable
+        else:
+            node.branchability = Branchability.Dropped
 
-    def step(self, node: Node) -> None:
-        if not node.exh.is_consistent:
-            self.__mip_state.number_of_relaxations += 1
-            node.exh.set_consistent()
-            if not node.is_feasible():
-                self.change_stack_and_mip_state_by_node(node)
-                return
-
-        new_nodes = node.branching()
+    def __branch(self, node: Node) -> tuple[Node, Node]:
         self.__mip_state.number_of_branches += 1
 
-        if new_nodes is not None:
-            left_node, right_node = new_nodes
+        bnb_branch = node.exh.solution.find_bnb_branch()
 
-            # ---------------------------------------------------------------------------------
-            self.graphes.append(
-                (left_node.exh.graph, left_node.exh.solution.is_infeasible()))
-            self.graphes.append(
-                (right_node.exh.graph, right_node.exh.solution.is_infeasible()))
-            # ---------------------------------------------------------------------------------
+        left_exh = node.exh.copy()
+        right_exh = node.exh.copy()
 
-            self.__mip_state.number_of_relaxations += 2
-            self.add_to_stack(left_node, right_node)
+        left_exh.change_var_bounds(
+            bnb_branch.var, bnb_branch.left_bound.lower, bnb_branch.left_bound.upper)
+        right_exh.change_var_bounds(
+            bnb_branch.var, bnb_branch.right_bound.lower, bnb_branch.right_bound.upper)
+
+        left_node = Node(left_exh)
+        left_node.exh.set_consistent(bnb_branch.var)
+        self.__set_branchability(left_node)
+
+        right_node = Node(right_exh)
+        right_node.exh.set_consistent(bnb_branch.var)
+        self.__set_branchability(right_node)
+
+        # ---------------------------------------------------------------------------------
+        self.graphes.append(
+            (left_node.exh.graph, left_node.exh.solution.is_infeasible()))
+        self.graphes.append(
+            (right_node.exh.graph, right_node.exh.solution.is_infeasible()))
+        # ---------------------------------------------------------------------------------
+        self.__mip_state.number_of_relaxations += 2
+
+        return sort_nodes(left_node, right_node)
+
+    def __realize_potential(self, node: Node, with_branch: bool) -> None:
+        if node.branchability == Branchability.Branchable:
+            if with_branch:
+                left_node, right_node = self.__branch(node)
+                self.__realize_potential(left_node, False)
+                self.__realize_potential(right_node, False)
+            else:
+                self.__stack.append(node)
+        elif node.branchability == Branchability.IntFeasible:
+            self.__mip_state.update_solution(node.exh.solution)
+        elif node.branchability == Branchability.Infeasible:
+            self.__update_by_infeasible_node(node)
+        elif node.branchability == Branchability.Dropped:
+            pass
+        elif node.branchability == Branchability.Unknown:
+            pass
+
+    def __update_by_infeasible_node(self, node: Node) -> None:
+        self.__mip_state.number_of_infeasible_nodes += 1
+        if self.__with_presolve and self.__cutting_mod > 0:
+            graph_cut = node.exh.graph.get_graph_cut()
+            if not graph_cut.is_empty() and (not graph_cut.is_trivial or self.__trivial_graph_cut):
+                if not graph_cut.is_trivial:
+                    self.__mip_state.number_of_non_trivial_graph_cuts += 1
+                if self.__cutting_check:
+                    self.__mip_state.number_of_relaxations += 1
+                if not self.__cutting_check or self.__root_node.exh.validate_cut(graph_cut):
+                    for stack_node in self.__stack:
+                        stack_node.exh.add_row(graph_cut)
+
+    def __step(self, node: Node) -> None:
+        node.exh.set_consistent()
+        self.__set_branchability(node)
+        self.__realize_potential(node, True)
 
     def solve(self):
         while self.__stack:
 
             node = self.__stack.pop()
-            if self.__mip_state.primal_solution.objective is None or \
-                    node.exh.solution.objective < self.__mip_state.primal_solution.objective:
+            self.__step(node)
 
-                self.step(node)
+            if self.__stack:
+                self.__mip_state.update_solution(
+                    min(self.__stack, key=lambda x: x.exh.solution.objective).exh.solution)
 
-                if self.__stack:
-                    self.__mip_state.update_solution(
-                        min(self.__stack, key=lambda x: x.exh.solution.objective).exh.solution)
-
-                if not self.__silent:
-                    self.printing_info()
+            if not self.__silent:
+                self.printing_info()
 
             if self.__mip_state.state == State.Converged:
                 break

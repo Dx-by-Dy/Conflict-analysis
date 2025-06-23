@@ -9,11 +9,6 @@ class Bound:
             upper=self.upper
         )
 
-    def this_strong_subset(self, other) -> bool:
-        if self.lower < other.lower or self.upper > other.upper:
-            return True
-        return False
-
     def __repr__(self):
         return f"Bound {{lower: {self.lower}, upper: {self.upper}" + " }"
 
@@ -21,7 +16,7 @@ class Bound:
         return self.lower == other.lower and self.upper == other.upper
 
 
-class BnBCut:
+class BnBBranch:
     from helpers.var import Var
 
     def __init__(self, var: Var, left_bound: Bound, right_bound: Bound):
@@ -30,4 +25,4 @@ class BnBCut:
         self.right_bound = right_bound
 
     def __repr__(self):
-        return f"BnBCut: var= {self.var.__repr__()}, left_bound= {self.left_bound.__repr__()}, right_bound= {self.right_bound.__repr__()}"
+        return f"BnBBranch: var= {self.var.__repr__()}, left_bound= {self.left_bound.__repr__()}, right_bound= {self.right_bound.__repr__()}"

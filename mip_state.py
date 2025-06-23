@@ -1,11 +1,13 @@
 from extended_highs_model import Solution
-from enum import Enum
+from enum import Enum, auto
+
+from node import Node
 
 
 class State(Enum):
-    InSolving = 0
-    Converged = 1
-    Infeasible = 2
+    InSolving = auto()
+    Converged = auto()
+    Infeasible = auto()
 
 
 class MipState:
@@ -47,6 +49,9 @@ class MipState:
         else:
             self.dual_solution.copy_from_other(solution)
         self.__check_convergency()
+
+    def check_branchability_of_node(self, node: Node) -> bool:
+        return self.primal_solution.objective is None or node.exh.solution.objective < self.primal_solution.objective
 
     def __repr__(self):
         if self.primal_solution.objective is None:

@@ -1,31 +1,25 @@
 from extended_highs_model import ExtendedHighsModel
+from enum import Enum, auto
+
+
+class Branchability(Enum):
+    Branchable = auto()
+    IntFeasible = auto()
+    Infeasible = auto()
+    Dropped = auto()
+    Unknown = auto()
 
 
 class Node:
     def __init__(self, exh: ExtendedHighsModel):
         self.exh = exh
+        self.branchability = Branchability.Unknown
 
-    def branching(self):
-        bnb_branch = self.exh.solution.find_bnb_branch()
 
-        if bnb_branch is None:
-            return None
-
-        left_exh = self.exh.copy()
-        right_exh = self.exh.copy()
-
-        left_exh.change_var_bounds(
-            bnb_branch.var, bnb_branch.left_bound.lower, bnb_branch.left_bound.upper)
-        right_exh.change_var_bounds(
-            bnb_branch.var, bnb_branch.right_bound.lower, bnb_branch.right_bound.upper)
-
-        left_node = Node(left_exh)
-        left_node.exh.set_consistent(bnb_branch.var)
-
-        right_node = Node(right_exh)
-        right_node.exh.set_consistent(bnb_branch.var)
-
-        return left_node, right_node
-
-    def is_feasible(self) -> bool:
-        return self.exh.solution.is_feasible()
+def sort_nodes(left_node: Node, right_node: Node) -> tuple[Node, Node]:
+    if right_node.branchability.value < left_node.branchability.value or \
+            (left_node.branchability == Branchability.Branchable and
+             right_node.branchability == Branchability.Branchable and
+             right_node.exh.solution.objective < left_node.exh.solution.objective):
+        return right_node, left_node
+    return left_node, right_node

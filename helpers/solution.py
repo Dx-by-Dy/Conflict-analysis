@@ -1,5 +1,5 @@
 import highspy
-from bound import BnBCut, Bound
+from bound import BnBBranch, Bound
 from helpers.var import Var
 
 
@@ -40,7 +40,7 @@ class Solution:
     def is_infeasible(self) -> bool:
         return self.status == highspy.HighsModelStatus.kInfeasible
 
-    def find_bnb_branch(self) -> BnBCut | None:
+    def find_bnb_branch(self) -> BnBBranch:
         def heuristic(x: float): return abs(x % 1 - 0.5)
         result_var: Var | None = None
         min_heuristic_value = 1
@@ -61,10 +61,10 @@ class Solution:
             if abs(result_val + 1 - result_var.upper) < self.primal_tolerance:
                 result_var.upper = result_val + 1
 
-            return BnBCut(
+            return BnBBranch(
                 var=result_var,
                 left_bound=Bound(lower=result_var.lower, upper=result_val),
                 right_bound=Bound(lower=result_val + 1, upper=result_var.upper)
             )
         else:
-            return None
+            raise Exception("Can't find the variavle for branching!")
