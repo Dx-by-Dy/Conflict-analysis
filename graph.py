@@ -92,7 +92,7 @@ class Graph:
         self.nodes[from_node].output_nodes.append(in_node)
         self.nodes[in_node].input_nodes.append(from_node)
 
-        if self.nodes[from_node].depth == self.nodes[in_node].depth:
+        if self.nodes[from_node].depth <= self.nodes[in_node].depth:
             self.drains[self.depth].discard(from_node)
         if len(self.nodes[in_node].output_nodes) == 0:
             self.drains[self.depth].add(in_node)
@@ -172,13 +172,19 @@ class Graph:
                 number_nodes_on_depth[depth] += 1
 
         for depth in range(self.depth, 0, -1):
+            if number_nodes_on_depth[depth] <= self.fuip_size:
+                for it in range(0, max_nodes_iteration_on_depth[depth] + 1):
+                    if it in current_implication_set[depth]:
+                        for node_idx in current_implication_set[depth][it]:
+                            graph_cut.append(node_idx)
+                continue
+
             for iteration in range(max_nodes_iteration_on_depth[depth], -1, -1):
-                if iteration == 0:
-                    graph_cut.append(
-                        current_implication_set[depth][iteration].pop())
-                    break
                 if iteration not in current_implication_set[depth]:
                     continue
+
+                removed_nodes = set()
+                ready = False
                 for node_idx in current_implication_set[depth][iteration]:
                     for implication_node_idx in self.nodes[node_idx].input_nodes:
                         implication_node = self.nodes[implication_node_idx]
@@ -195,15 +201,19 @@ class Graph:
                                 implication_node_idx}
                             number_nodes_on_depth[implication_node.depth] += 1
 
-                number_nodes_on_depth[depth] -= len(
-                    current_implication_set[depth][iteration])
-                current_implication_set[depth].pop(iteration)
-                if number_nodes_on_depth[depth] <= self.fuip_size:
-                    for it in range(0, iteration):
-                        if it in current_implication_set[depth]:
-                            for node_idx in current_implication_set[depth][it]:
-                                graph_cut.append(node_idx)
+                    number_nodes_on_depth[depth] -= 1
+                    removed_nodes.add(node_idx)
+                    if number_nodes_on_depth[depth] <= self.fuip_size:
+                        for it in range(0, iteration + 1):
+                            if it in current_implication_set[depth]:
+                                for node_idx in current_implication_set[depth][it]:
+                                    if node_idx not in removed_nodes:
+                                        graph_cut.append(node_idx)
+                        break
+                if ready:
                     break
+
+                current_implication_set[depth].pop(iteration)
 
         return graph_cut
 
