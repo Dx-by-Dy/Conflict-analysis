@@ -47,7 +47,7 @@ class Solution:
         result_val: int | None = None
 
         for var, val in zip(self.value[0], self.value[1]):
-            if not var.is_general:
+            if not var.is_general or var.is_conv():
                 continue
             temp_heuristics = heuristic(val)
             if temp_heuristics < min_heuristic_value and temp_heuristics < 0.5 - self.primal_tolerance:
@@ -56,11 +56,6 @@ class Solution:
                 result_val = int(val)
 
         if result_var is not None:
-            if abs(result_val - result_var.lower) < self.primal_tolerance:
-                result_var.lower = result_val
-            if abs(result_val + 1 - result_var.upper) < self.primal_tolerance:
-                result_var.upper = result_val + 1
-
             return BnBBranch(
                 var=result_var,
                 left_bound=Bound(lower=result_var.lower, upper=result_val),

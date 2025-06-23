@@ -20,8 +20,8 @@ if __name__ == "__main__":
                         help="Enable or disable writing info from the custom solver. (default = `enable`)")
     parser.add_argument("--fuip_size", type=int, default=1,
                         help="Size of FUIP group in the custom solver. (default = `1`)")
-    parser.add_argument("--use_dropped", type=str, default="enable", choices=["enable", "disable"],
-                        help="Enable or disable using the dropped nodes like infeasible in the custom solver. (default = `enable`)")
+    parser.add_argument("--use_dropped", type=str, default="disable", choices=["enable", "disable"],
+                        help="Enable or disable using the dropped nodes like infeasible in the custom solver. (default = `disable`)")
     args = parser.parse_args()
 
     if args.solver == "enable":

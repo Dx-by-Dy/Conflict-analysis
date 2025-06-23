@@ -89,6 +89,7 @@ class Solver:
             if with_branch:
                 left_node, right_node = self.__branch(node)
                 self.__realize_potential(left_node, False)
+                self.__set_branchability(right_node)
                 self.__realize_potential(right_node, False)
             else:
                 self.__mip_state.branchability_statistic.add(
@@ -133,14 +134,15 @@ class Solver:
         while self.__stack:
 
             node = self.__stack.pop()
+
+            if not self.__silent:
+                self.printing_info(node)
+
             self.__step(node)
 
             if self.__stack:
                 self.__mip_state.update_solution(
                     min(self.__stack, key=lambda x: x.exh.solution.objective).exh.solution)
-
-            if not self.__silent:
-                self.printing_info()
 
             if self.__mip_state.state == State.Converged:
                 break
@@ -151,8 +153,9 @@ class Solver:
         return self.graphes
         # --------------------------
 
-    def printing_info(self) -> None:
+    def printing_info(self, node: Node) -> None:
         print(f"number of branches: {self.__mip_state.number_of_branches}\t" +
+              f"depth: {node.exh.graph.depth}\t" +
               f"primal value: {self.__mip_state.primal_solution.objective}\t" +
               f"dual value: {self.__mip_state.dual_solution.objective}\t"
               )
