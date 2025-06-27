@@ -126,9 +126,10 @@ class ExtendedHighsModel(highspy.Highs):
         self.vars[var.index].lower = lower
         self.vars[var.index].upper = upper
 
-    def set_consistent(self, branched_var: Var | None = None) -> None:
+    def set_consistent(self, branched_var: Var | None = None) -> bool:
         if self.is_consistent:
             return
+        self.is_consistent = True
 
         if self.with_presolve:
             if branched_var is not None:
@@ -136,11 +137,10 @@ class ExtendedHighsModel(highspy.Highs):
             self.update_vars_bounds()
 
         self.run()
-        self.solution.set_solution(objective=self.getInfo().objective_function_value,
-                                   value=(
-                                       self.vars, self.getSolution().col_value),
-                                   status=self.getModelStatus())
-        self.is_consistent = True
+        return self.solution.set_solution(objective=self.getInfo().objective_function_value,
+                                          value=(
+                                              self.vars, self.getSolution().col_value),
+                                          status=self.getModelStatus())
 
     def update_vars_bounds(self):
         for i in range(10):

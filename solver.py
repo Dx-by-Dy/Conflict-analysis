@@ -126,7 +126,8 @@ class Solver:
                         stack_node.exh.add_row(graph_cut)
 
     def __step(self, node: Node) -> None:
-        node.exh.set_consistent()
+        if node.exh.set_consistent():
+            self.__mip_state.number_of_objective_changes += 1
         self.__set_branchability(node)
         self.__realize_potential(node, True)
 

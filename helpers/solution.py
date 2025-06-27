@@ -4,7 +4,8 @@ from helpers.var import Var
 
 
 class Solution:
-    def __init__(self, objective: float | None = None,
+    def __init__(self,
+                 objective: float | None = None,
                  value: tuple[list[Var], list[float]] | None = None,
                  primal_tolerance: float = 1e-9):
         self.value = value
@@ -13,11 +14,19 @@ class Solution:
         self.status: highspy.HighsModelStatus | None = None
         self.is_primal: bool | None = self.__is_primal()
 
-    def set_solution(self, objective: float, value: tuple[list[Var], list[float]], status: highspy.HighsModelStatus) -> None:
+    def set_solution(self, objective: float, value: tuple[list[Var], list[float]], status: highspy.HighsModelStatus) -> bool:
+        changed = self.objective is not None and ((objective is None and self.objective is not None) or abs(
+            objective - self.objective) >= 1e-4)
+
+        # if changed:
+        #     print(self.objective, objective)
+
         self.value = value
         self.objective = objective
         self.status = status
         self.is_primal = self.__is_primal()
+
+        return changed
 
     def copy_from_other(self, other):
         self.value = (other.value[0].copy(), other.value[1].copy())
