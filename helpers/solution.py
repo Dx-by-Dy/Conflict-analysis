@@ -1,3 +1,4 @@
+from math import isinf
 import highspy
 from bound import BnBBranch, Bound
 from helpers.var import Var
@@ -15,6 +16,9 @@ class Solution:
         self.is_primal: bool | None = self.__is_primal()
 
     def set_solution(self, objective: float, value: tuple[list[Var], list[float]], status: highspy.HighsModelStatus) -> bool:
+        if isinf(objective):
+            objective = None
+
         changed = self.objective is not None and ((objective is None and self.objective is not None) or abs(
             objective - self.objective) >= 1e-4)
 

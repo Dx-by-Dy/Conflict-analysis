@@ -44,7 +44,7 @@ class MipState:
             return
         if self.primal_solution.objective <= self.dual_solution.objective or \
             (self.primal_solution.objective - self.dual_solution.objective) \
-                / abs(self.dual_solution.objective) < self.convergence_tolerance:
+                / max(abs(self.dual_solution.objective), abs(self.primal_solution.objective)) < self.convergence_tolerance:
             self.dual_solution.copy_from_other(self.primal_solution)
             self.state = State.Converged
             return
@@ -70,9 +70,10 @@ class MipState:
     def check_branchability_of_node(self, node: Node) -> bool:
         if self.primal_solution.objective is None:
             return True
-        if node.exh.solution.objective > self.primal_solution.objective:
+        if node.exh.solution.objective is None or node.exh.solution.objective > self.primal_solution.objective:
             return False
-        return (self.primal_solution.objective - node.exh.solution.objective) / abs(self.primal_solution.objective) > self.convergence_tolerance
+        return (self.primal_solution.objective - node.exh.solution.objective) \
+            / max(abs(self.primal_solution.objective), abs(node.exh.solution.objective)) > self.convergence_tolerance
 
     def __repr__(self):
         if self.primal_solution.objective is None:
