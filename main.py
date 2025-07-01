@@ -12,15 +12,15 @@ if __name__ == "__main__":
                         help="Enable or disable presolving in the custom solver. (default = `enable`)")
     parser.add_argument("--cutting", type=str, default="fuip", choices=["root", "fuip", "disable"],
                         help="Cutting behaviour in the custom solver. (default = `fuip`)")
-    parser.add_argument("--cutting_check", type=str, default="disable", choices=["enable", "disable"],
+    parser.add_argument("--cutting-check", type=str, default="disable", choices=["enable", "disable"],
                         help="Enable or disable cutting check in the custom solver. (default = `disable`)")
-    parser.add_argument("--trivial_graph_cut", type=str, default="enable", choices=["enable", "disable"],
-                        help="Enable or disable trivial graph cuts in the custom solver. (default = `enable`)")
+    parser.add_argument("--trivial-graph-cut", type=str, default="disable", choices=["enable", "disable"],
+                        help="Enable or disable trivial graph cuts in the custom solver. (default = `disable`)")
     parser.add_argument("--silent", type=str, default="enable", choices=["enable", "disable"],
                         help="Enable or disable writing info from the custom solver. (default = `enable`)")
-    parser.add_argument("--fuip_size", type=int, default=1,
+    parser.add_argument("--fuip-size", type=int, default=1,
                         help="Size of FUIP group in the custom solver. (default = `1`)")
-    parser.add_argument("--use_dropped", type=str, default="disable", choices=["enable", "disable"],
+    parser.add_argument("--use-dropped", type=str, default="disable", choices=["enable", "disable"],
                         help="Enable or disable using the dropped nodes like infeasible in the custom solver. (default = `disable`)")
     args = parser.parse_args()
 

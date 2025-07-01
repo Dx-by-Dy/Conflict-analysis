@@ -68,7 +68,11 @@ class MipState:
         self.__check_convergency()
 
     def check_branchability_of_node(self, node: Node) -> bool:
-        return self.primal_solution.objective is None or node.exh.solution.objective < self.primal_solution.objective
+        if self.primal_solution.objective is None:
+            return True
+        if node.exh.solution.objective > self.primal_solution.objective:
+            return False
+        return (self.primal_solution.objective - node.exh.solution.objective) / abs(self.primal_solution.objective) > self.convergence_tolerance
 
     def __repr__(self):
         if self.primal_solution.objective is None:

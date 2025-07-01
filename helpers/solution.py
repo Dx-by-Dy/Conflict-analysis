@@ -18,9 +18,6 @@ class Solution:
         changed = self.objective is not None and ((objective is None and self.objective is not None) or abs(
             objective - self.objective) >= 1e-4)
 
-        # if changed:
-        #     print(self.objective, objective)
-
         self.value = value
         self.objective = objective
         self.status = status
