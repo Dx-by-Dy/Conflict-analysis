@@ -57,13 +57,19 @@ class Solution:
         result_val: int | None = None
 
         for var, val in zip(self.value[0], self.value[1]):
-            if not var.is_general or var.is_conv():
+            # if not var.is_general or var.is_conv():
+            #     continue
+            # temp_heuristics = heuristic(val)
+            # if temp_heuristics < min_heuristic_value and temp_heuristics < 0.5 - self.primal_tolerance:
+            #     result_var = var
+            #     min_heuristic_value = temp_heuristics
+            #     result_val = int(val)
+
+            if not var.is_general or var.is_conv() or val % 1 < self.primal_tolerance:
                 continue
-            temp_heuristics = heuristic(val)
-            if temp_heuristics < min_heuristic_value and temp_heuristics < 0.5 - self.primal_tolerance:
-                result_var = var
-                min_heuristic_value = temp_heuristics
-                result_val = int(val)
+            result_var = var
+            result_val = int(val)
+            break
 
         if result_var is not None:
             return BnBBranch(
