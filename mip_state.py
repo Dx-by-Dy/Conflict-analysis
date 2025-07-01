@@ -27,7 +27,7 @@ class State(Enum):
 
 
 class MipState:
-    def __init__(self, convergence_tolerance: float = 1e-4) -> None:
+    def __init__(self, convergence_tolerance: float) -> None:
         self.state = State.InSolving
         self.primal_solution: Solution = Solution()
         self.dual_solution: Solution = Solution()
@@ -67,7 +67,7 @@ class MipState:
             self.dual_solution.copy_from_other(solution)
         self.__check_convergency()
 
-    def check_branchability_of_node(self, node: Node) -> bool:
+    def check_node(self, node: Node) -> bool:
         if self.primal_solution.objective is None:
             return True
         if node.exh.solution.objective is None or node.exh.solution.objective > self.primal_solution.objective:

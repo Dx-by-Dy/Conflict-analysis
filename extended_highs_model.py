@@ -126,7 +126,7 @@ class ExtendedHighsModel(highspy.Highs):
         self.vars[var.index].lower = lower
         self.vars[var.index].upper = upper
 
-    def set_consistent(self, branched_var: Var | None = None) -> bool:
+    def solve(self, branched_var: Var | None = None) -> bool:
         if self.is_consistent:
             return
         self.is_consistent = True

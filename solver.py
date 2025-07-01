@@ -29,10 +29,9 @@ class Solver:
             fuip_size,
             path_to_problem,
             primal_tolerance))
-        self.__root_node.exh.set_consistent()
+        self.__root_node.exh.solve()
 
-        self.__mip_state = MipState(
-            convergence_tolerance=convergence_tolerance)
+        self.__mip_state = MipState(convergence_tolerance)
         self.__mip_state.update_solution(self.__root_node.exh.solution)
         self.__stack: list[Node] = [self.__root_node]
 
@@ -41,16 +40,6 @@ class Solver:
                          self.__root_node.exh.solution.is_infeasible())]
         # -----------------------
 
-    # def __set_branchability(self, node: Node) -> None:
-    #     if node.exh.solution.is_infeasible():
-    #         node.branchability = Branchability.Infeasible
-    #     elif node.exh.solution.is_feasible() and node.exh.solution.is_primal:
-    #         node.branchability = Branchability.IntFeasible
-    #     elif node.exh.solution.is_feasible() and self.__mip_state.check_branchability_of_node(node):
-    #         node.branchability = Branchability.Branchable
-    #     else:
-    #         node.branchability = Branchability.Dropped
-
     def __analyze(self, node: Node) -> None:
         if node.exh.solution.is_infeasible():
             branchability = Branchability.Infeasible
@@ -58,7 +47,7 @@ class Solver:
         elif node.exh.solution.is_feasible() and node.exh.solution.is_primal:
             branchability = Branchability.IntFeasible
             self.__mip_state.update_solution(node.exh.solution)
-        elif node.exh.solution.is_feasible() and self.__mip_state.check_branchability_of_node(node):
+        elif node.exh.solution.is_feasible() and self.__mip_state.check_node(node):
             branchability = Branchability.Branchable
         else:
             branchability = Branchability.Dropped
@@ -83,10 +72,10 @@ class Solver:
             bnb_branch.var, bnb_branch.right_bound.lower, bnb_branch.right_bound.upper)
 
         left_node = Node(left_exh)
-        left_node.exh.set_consistent(bnb_branch.var)
+        left_node.exh.solve(bnb_branch.var)
 
         right_node = Node(right_exh)
-        right_node.exh.set_consistent(bnb_branch.var)
+        right_node.exh.solve(bnb_branch.var)
 
         # ---------------------------------------------------------------------------------
         self.graphes.append(
@@ -98,36 +87,7 @@ class Solver:
 
         return sort_nodes(left_node, right_node)
 
-    # def __realize_potential(self, node: Node, with_branch: bool) -> None:
-    #     if node.branchability == Branchability.Branchable:
-    #         if with_branch:
-    #             left_node, right_node = self.__branch(node)
-    #             self.__realize_potential(left_node, False)
-    #             self.__set_branchability(right_node)
-    #             self.__realize_potential(right_node, False)
-    #         else:
-    #             self.__mip_state.branchability_statistic.add(
-    #                 Branchability.Branchable)
-    #             self.__stack.append(node)
-    #     elif node.branchability == Branchability.IntFeasible:
-    #         self.__mip_state.branchability_statistic.add(
-    #             Branchability.IntFeasible)
-    #         self.__mip_state.update_solution(node.exh.solution)
-    #     elif node.branchability == Branchability.Infeasible:
-    #         self.__mip_state.branchability_statistic.add(
-    #             Branchability.Infeasible)
-    #         self.__update_by_infeasible_node(node)
-    #     elif node.branchability == Branchability.Dropped:
-    #         self.__mip_state.branchability_statistic.add(
-    #             Branchability.Dropped)
-    #         if self.__use_dropped:
-    #             self.__update_by_infeasible_node(node)
-    #     elif node.branchability == Branchability.Unknown:
-    #         self.__mip_state.branchability_statistic.add(
-    #             Branchability.Unknown)
-
     def __update_by_infeasible_node(self, node: Node) -> None:
-        # self.__mip_state.number_of_infeasible_nodes += 1
         if self.__with_presolve and self.__cutting_mod > 0:
             graph_cut = node.exh.graph.get_graph_cut()
             if not graph_cut.is_empty() and (not graph_cut.is_trivial or self.__trivial_graph_cut):
@@ -140,7 +100,7 @@ class Solver:
                         stack_node.exh.add_row(graph_cut)
 
     def __step(self, node: Node) -> None:
-        if node.exh.set_consistent():
+        if node.exh.solve():
             self.__mip_state.number_of_objective_changes += 1
 
         self.__analyze(node)
