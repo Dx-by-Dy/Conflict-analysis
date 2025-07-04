@@ -218,6 +218,15 @@ class Graph:
 
         return graph_cut
 
+    def leafs(self) -> list[int]:
+        graph_cut: list[int] = []
+
+        for depth in range(1, self.depth + 1):
+            for node_idx in self.drains[depth]:
+                graph_cut.append(node_idx)
+
+        return graph_cut
+
     def get_front_nodes_indices(self) -> list[int]:
         if self.cutting_mod == 0:
             return []
@@ -225,6 +234,8 @@ class Graph:
             return self.find_FUIP()
         elif self.cutting_mod == 2:
             return self.origins
+        elif self.cutting_mod == 3:
+            return self.leafs()
         raise ValueError
 
     def get_graph_cut(self) -> GraphCut:

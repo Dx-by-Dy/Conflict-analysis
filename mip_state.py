@@ -38,6 +38,7 @@ class MipState:
         self.number_of_relaxations = 0
         self.number_of_non_trivial_graph_cuts = 0
         self.number_of_objective_changes = 0
+        self.number_of_resolved_nodes = 0
 
     def __check_convergency(self) -> None:
         if self.primal_solution.objective is None or self.dual_solution.objective is None:
@@ -100,6 +101,7 @@ class MipState:
         text += f"\n\tnumber of relaxations: {self.number_of_relaxations}"
         text += f"\n\tnumber of non trivial graph cuts: {self.number_of_non_trivial_graph_cuts}"
         text += f"\n\tnumber of objective changes: {self.number_of_objective_changes}"
+        text += f"\n\tnumber of resolved nodes: {self.number_of_resolved_nodes}"
         text += "\n" + self.branchability_statistic.__repr__(1)
         text += "\n}"
         return text

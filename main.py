@@ -10,7 +10,7 @@ if __name__ == "__main__":
                         help="Enable or disable the Highs solver. (default = `disable`)")
     parser.add_argument("--presolve", type=str, default="enable", choices=["enable", "disable"],
                         help="Enable or disable presolving in the custom solver. (default = `enable`)")
-    parser.add_argument("--cutting", type=str, default="fuip", choices=["root", "fuip", "disable"],
+    parser.add_argument("--cutting", type=str, default="fuip", choices=["roots", "leafs", "fuip", "disable"],
                         help="Cutting behaviour in the custom solver. (default = `fuip`)")
     parser.add_argument("--cutting-check", type=str, default="disable", choices=["enable", "disable"],
                         help="Enable or disable cutting check in the custom solver. (default = `disable`)")
@@ -30,8 +30,10 @@ if __name__ == "__main__":
         cutting_mod = 0
         if args.cutting == "fuip":
             cutting_mod = 1
-        elif args.cutting == "root":
+        elif args.cutting == "roots":
             cutting_mod = 2
+        elif args.cutting == "leafs":
+            cutting_mod = 3
 
         sl = Solver(path_to_problem=args.problem,
                     with_presolve=args.presolve == "enable",

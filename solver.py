@@ -1,4 +1,4 @@
-from extended_highs_model import ExtendedHighsModel
+from extended_highs_model import ExtendedHighsModel, SolveRes
 from mip_state import MipState, State
 from node import Branchability, Node, sort_nodes
 
@@ -94,14 +94,17 @@ class Solver:
                 if not graph_cut.is_trivial:
                     self.__mip_state.number_of_non_trivial_graph_cuts += 1
                 if self.__cutting_check:
-                    self.__mip_state.number_of_relaxations += 1
+                    self.__mip_state.number_of_resolved_nodes += 1
                 if not self.__cutting_check or self.__root_node.exh.validate_cut(graph_cut):
                     for stack_node in self.__stack:
                         stack_node.exh.add_row(graph_cut)
 
     def __step(self, node: Node) -> None:
-        if node.exh.solve():
-            self.__mip_state.number_of_objective_changes += 1
+        res_solve = node.exh.solve()
+        if res_solve == SolveRes.ResolvedAndChanged or res_solve == SolveRes.ResolvedAndUnchanged:
+            self.__mip_state.number_of_resolved_nodes += 1
+            if res_solve == SolveRes.ResolvedAndChanged:
+                self.__mip_state.number_of_objective_changes += 1
 
         self.__analyze(node)
         if node.branchability != Branchability.Branchable:

@@ -1,3 +1,4 @@
+from enum import Enum, auto
 import highspy
 
 from bound import Bound
@@ -6,6 +7,13 @@ from helpers.constraint import Constraint
 from helpers.graph_cut import GraphCut
 from helpers.solution import Solution
 from helpers.var import Var
+
+
+class SolveRes(Enum):
+    AlreadyConsistent = auto()
+    SolvedFirstly = auto()
+    ResolvedAndChanged = auto()
+    ResolvedAndUnchanged = auto()
 
 
 class ExtendedHighsModel(highspy.Highs):
@@ -26,6 +34,10 @@ class ExtendedHighsModel(highspy.Highs):
         self.with_presolve = with_presolve
         self.graph = Graph(fuip_size=fuip_size, cutting_mod=cutting_mod)
         self.is_consistent: bool = False
+
+        # ----------------------
+        self.solved = False
+        # ----------------------
 
         if path_to_problem is None:
             return
@@ -126,10 +138,9 @@ class ExtendedHighsModel(highspy.Highs):
         self.vars[var.index].lower = lower
         self.vars[var.index].upper = upper
 
-    def solve(self, branched_var: Var | None = None) -> bool:
+    def solve(self, branched_var: Var | None = None) -> SolveRes:
         if self.is_consistent:
-            return
-        self.is_consistent = True
+            return SolveRes.AlreadyConsistent
 
         if self.with_presolve:
             if branched_var is not None:
@@ -137,10 +148,19 @@ class ExtendedHighsModel(highspy.Highs):
             self.update_vars_bounds()
 
         self.run()
-        return self.solution.set_solution(objective=self.getInfo().objective_function_value,
-                                          value=(
-                                              self.vars, self.getSolution().col_value),
-                                          status=self.getModelStatus())
+        res_solution = self.solution.set_solution(
+            objective=self.getInfo().objective_function_value,
+            value=(
+                self.vars, self.getSolution().col_value),
+            status=self.getModelStatus())
+        self.is_consistent = True
+
+        if not self.solved:
+            self.solved = True
+            return SolveRes.SolvedFirstly
+        if res_solution:
+            return SolveRes.ResolvedAndChanged
+        return SolveRes.ResolvedAndUnchanged
 
     def update_vars_bounds(self):
         for i in range(10):
@@ -189,10 +209,3 @@ class ExtendedHighsModel(highspy.Highs):
 
         text += "}\n"
         return text
-
-
-if __name__ == "__main__":
-    ex = ExtendedHighsModel("problems/problem_from_article_mod.lp")
-    print(ex)
-    print(ex.update_vars_bounds())
-    print(ex)
